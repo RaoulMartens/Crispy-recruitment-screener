@@ -343,9 +343,9 @@ export function Screener() {
                 <CompletionConfetti />
                 <Image
                   src="/thank-you.webp"
-                  alt="Collega's vieren samen een welkom moment."
-                  width={400}
-                  height={300}
+                  alt="Een man kijkt verbaasd in een kantoor."
+                  width={341}
+                  height={192}
                   unoptimized
                   loading="lazy"
                   className="mb-7 h-auto w-full rounded-md"
