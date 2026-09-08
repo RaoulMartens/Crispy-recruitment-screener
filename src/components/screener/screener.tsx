@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
+import welcomeCover from "../../../public/welcome-cover.webp";
 import { ArrowLeft, ArrowRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,11 +143,12 @@ export function Screener() {
       {stepId === "intro" && (
         <div className="relative h-44 w-full shrink-0 sm:h-58">
           <Image
-            src="/welcome-cover.jpg"
+            src={welcomeCover}
             alt="Iemand werkt aan een bureau met een laptop en telefoon."
             fill
             sizes="100vw"
             preload
+            placeholder="blur"
             className="object-cover object-[50%_43%]"
           />
         </div>
