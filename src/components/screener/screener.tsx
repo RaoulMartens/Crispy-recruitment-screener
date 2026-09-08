@@ -340,11 +340,12 @@ export function Screener() {
           <>
             <CompletionConfetti />
             <Image
-              src="/thank-you.gif"
+              src="/thank-you.webp"
               alt="Collega's vieren samen een welkom moment."
-              width={530}
-              height={320}
+              width={400}
+              height={300}
               unoptimized
+              loading="lazy"
               className="mb-7 h-auto w-full rounded-md"
             />
             <StepFrame
