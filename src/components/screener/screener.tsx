@@ -338,20 +338,32 @@ export function Screener() {
         )}
         {stepId === "complete" && submission && (
           <>
-            <CompletionConfetti />
-            <Image
-              src="/thank-you.webp"
-              alt="Collega's vieren samen een welkom moment."
-              width={400}
-              height={300}
-              unoptimized
-              loading="lazy"
-              className="mb-7 h-auto w-full rounded-md"
-            />
+            {submission.openToInterview && (
+              <>
+                <CompletionConfetti />
+                <Image
+                  src="/thank-you.webp"
+                  alt="Collega's vieren samen een welkom moment."
+                  width={400}
+                  height={300}
+                  unoptimized
+                  loading="lazy"
+                  className="mb-7 h-auto w-full rounded-md"
+                />
+              </>
+            )}
             <StepFrame
               key={stepId}
-              title="Yesss! gelukt"
-              description="Bedankt voor het invullen. Als je binnen de doelgroep past, neem ik mogelijk contact met je op voor een kort interview."
+              title={
+                submission.openToInterview
+                  ? "Yesss! gelukt"
+                  : "Bedankt voor je reactie"
+              }
+              description={
+                submission.openToInterview
+                  ? "Bedankt voor het invullen. Als je binnen de doelgroep past, neem ik mogelijk contact met je op voor een kort interview."
+                  : "Bedankt voor het invullen. Je reactie helpt bij mijn afstudeeronderzoek. Zoals aangegeven neem ik geen contact met je op voor een interview."
+              }
             >
               <div className="flex flex-wrap items-center gap-3">
                 <Button size="lg" onClick={() => goTo(steps[steps.length - 2])}>
