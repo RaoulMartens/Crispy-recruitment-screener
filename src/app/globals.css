@@ -72,6 +72,21 @@
   transition: background-color 120ms ease-out, color 120ms ease-out;
 }
 
+.screener .next-arrow,
+.screener .back-arrow {
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.screener .next-button:active .next-arrow,
+.screener .next-button:focus-visible .next-arrow {
+  transform: translateX(2px);
+}
+
+.screener .back-button:active .back-arrow,
+.screener .back-button:focus-visible .back-arrow {
+  transform: translateX(-2px);
+}
+
 .screener [data-slot="button"]:active {
   transform: none;
 }
@@ -155,6 +170,12 @@
     border-color: var(--brand-teal);
     background: var(--accent);
   }
+  .screener .next-button:hover .next-arrow {
+    transform: translateX(3px);
+  }
+  .screener .back-button:hover .back-arrow {
+    transform: translateX(-3px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -162,6 +183,10 @@
   .screener *::before,
   .screener *::after {
     transition: none;
+  }
+  .screener .next-arrow,
+  .screener .back-arrow {
+    transform: none !important;
   }
   .completion-confetti-piece {
     animation: confetti-reduced 500ms ease-out var(--confetti-delay) forwards;

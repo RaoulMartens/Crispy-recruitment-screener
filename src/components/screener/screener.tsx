@@ -182,8 +182,12 @@ export function Screener() {
               Met dit korte formulier kijk ik alleen of je binnen de doelgroep
               past en hoe ik contact met je kan opnemen.
             </p>
-            <Button size="lg" onClick={() => goTo("participant")}>
-              Start <ArrowRight aria-hidden="true" />
+            <Button
+              size="lg"
+              onClick={() => goTo("participant")}
+              className="next-button"
+            >
+              Start <ArrowRight aria-hidden="true" className="next-arrow" />
             </Button>
           </StepFrame>
         )}
@@ -227,9 +231,28 @@ export function Screener() {
                 </RadioGroup>
               ) : (
                 <div className="relative">
+                  <Input
+                    ref={inputRef}
+                    id={question.field}
+                    name={question.field}
+                    aria-labelledby="step-title"
+                    aria-describedby={error ? "step-error" : "step-description"}
+                    aria-invalid={Boolean(error)}
+                    required
+                    type={question.inputType ?? "text"}
+                    inputMode={question.inputType === "email" ? "email" : "text"}
+                    value={answers[question.field]}
+                    onChange={(event) =>
+                      updateAnswer(question.field, event.target.value)
+                    }
+                    placeholder={question.placeholder}
+                    autoComplete={question.autoComplete ?? "off"}
+                    maxLength={question.maxLength}
+                    className="h-12 rounded-md px-3.5 text-base md:text-base"
+                  />
                   {answers.interview === "yes" &&
                     (stepId === "name" || stepId === "email") && (
-                      <div className="absolute right-0 bottom-full mb-2">
+                      <div className="mt-2 flex justify-end sm:absolute sm:right-0 sm:bottom-full sm:mt-0 sm:mb-2">
                         <TooltipProvider>
                           <Tooltip
                             open={privacyTooltipOpen}
@@ -257,25 +280,6 @@ export function Screener() {
                         </TooltipProvider>
                       </div>
                     )}
-                  <Input
-                    ref={inputRef}
-                    id={question.field}
-                    name={question.field}
-                    aria-labelledby="step-title"
-                    aria-describedby={error ? "step-error" : "step-description"}
-                    aria-invalid={Boolean(error)}
-                    required
-                    type={question.inputType ?? "text"}
-                    inputMode={question.inputType === "email" ? "email" : "text"}
-                    value={answers[question.field]}
-                    onChange={(event) =>
-                      updateAnswer(question.field, event.target.value)
-                    }
-                    placeholder={question.placeholder}
-                    autoComplete={question.autoComplete ?? "off"}
-                    maxLength={question.maxLength}
-                    className="h-12 rounded-md px-3.5 text-base md:text-base"
-                  />
                 </div>
               )}
               {error && (
@@ -320,17 +324,22 @@ export function Screener() {
                   variant="ghost"
                   size="lg"
                   onClick={() => goTo(steps[stepIndex - 1])}
-                  className="-ml-4 text-muted-foreground"
+                  className="back-button -ml-4 text-muted-foreground"
                 >
-                  <ArrowLeft aria-hidden="true" /> Terug
+                  <ArrowLeft aria-hidden="true" className="back-arrow" /> Terug
                 </Button>
-                <Button type="submit" size="lg" disabled={submissionStatus === "submitting"}>
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={submissionStatus === "submitting"}
+                  className="next-button"
+                >
                   {submissionStatus === "submitting"
                     ? "Opslaan…"
                     : isLastQuestion
                       ? "Afronden"
                       : "Volgende"}{" "}
-                  <ArrowRight aria-hidden="true" />
+                  <ArrowRight aria-hidden="true" className="next-arrow" />
                 </Button>
               </div>
             </form>
@@ -338,20 +347,24 @@ export function Screener() {
         )}
         {stepId === "complete" && submission && (
           <>
-            {submission.openToInterview && (
-              <>
-                <CompletionConfetti />
-                <Image
-                  src="/thank-you.webp"
-                  alt="Een man kijkt verbaasd in een kantoor."
-                  width={341}
-                  height={192}
-                  unoptimized
-                  loading="lazy"
-                  className="mb-7 h-auto w-full rounded-md"
-                />
-              </>
-            )}
+            {submission.openToInterview && <CompletionConfetti />}
+            <Image
+              src={
+                submission.openToInterview
+                  ? "/interview-thank-you.webp"
+                  : "/thank-you.webp"
+              }
+              alt={
+                submission.openToInterview
+                  ? "Collega's vieren samen een welkom moment."
+                  : "Een man kijkt verbaasd in een kantoor."
+              }
+              width={submission.openToInterview ? 400 : 341}
+              height={submission.openToInterview ? 300 : 192}
+              unoptimized
+              loading="lazy"
+              className="mb-7 h-auto w-full rounded-md"
+            />
             <StepFrame
               key={stepId}
               title={
@@ -366,8 +379,12 @@ export function Screener() {
               }
             >
               <div className="flex flex-wrap items-center gap-3">
-                <Button size="lg" onClick={() => goTo(steps[steps.length - 2])}>
-                  <ArrowLeft aria-hidden="true" /> Antwoorden bekijken
+                <Button
+                  size="lg"
+                  onClick={() => goTo(steps[steps.length - 2])}
+                  className="back-button"
+                >
+                  <ArrowLeft aria-hidden="true" className="back-arrow" /> Antwoorden bekijken
                 </Button>
                 <Button
                   variant="ghost"
