@@ -108,6 +108,7 @@ export function Screener() {
     const url = new URL("/", window.location.origin);
     url.searchParams.set("via", "share");
     const shareData = {
+      text: "Ken je iemand voor wie dit relevant is? Stuur 'm door.",
       url: url.toString(),
     };
 
