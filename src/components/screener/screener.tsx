@@ -444,15 +444,15 @@ export function Screener() {
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <Button
                   type="button"
+                  variant="ghost"
                   size="lg"
                   onClick={() => goTo(steps[steps.length - 2])}
-                  className="back-button w-full sm:w-auto"
+                  className="back-button w-full justify-start text-muted-foreground sm:-ml-4 sm:w-auto"
                 >
                   <ArrowLeft aria-hidden="true" className="back-arrow" /> Antwoorden bekijken
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
                   size="lg"
                   onClick={shareResearch}
                   className="w-full sm:w-auto"
