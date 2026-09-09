@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import welcomeCover from "../../../public/welcome-cover.webp";
-import { ArrowLeft, ArrowRight, Info } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Info, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,9 +41,13 @@ export function Screener() {
   const [contactConsent, setContactConsent] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
   const [privacyTooltipOpen, setPrivacyTooltipOpen] = useState(false);
+  const [shareStatus, setShareStatus] = useState<
+    "idle" | "shared" | "copied" | "error"
+  >("idle");
   const firstOptionRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const consentRef = useRef<HTMLInputElement>(null);
+  const shareStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const steps = getSteps(answers);
   const stepIndex = steps.indexOf(stepId);
   const question: Question | null =
@@ -58,6 +62,15 @@ export function Screener() {
   useEffect(() => {
     if (consentError) consentRef.current?.focus();
   }, [consentError]);
+
+  useEffect(
+    () => () => {
+      if (shareStatusTimerRef.current) {
+        clearTimeout(shareStatusTimerRef.current);
+      }
+    },
+    [],
+  );
 
   function goTo(id: StepId) {
     setError(null);
@@ -75,6 +88,56 @@ export function Screener() {
     if (field === "interview" && value === "no") {
       setContactConsent(false);
       setConsentError(null);
+    }
+  }
+
+  function showTemporaryShareStatus(
+    status: Exclude<typeof shareStatus, "idle">,
+  ) {
+    if (shareStatusTimerRef.current) {
+      clearTimeout(shareStatusTimerRef.current);
+    }
+    setShareStatus(status);
+    shareStatusTimerRef.current = setTimeout(() => {
+      setShareStatus("idle");
+      shareStatusTimerRef.current = null;
+    }, 2500);
+  }
+
+  async function shareResearch() {
+    const url = new URL("/", window.location.origin);
+    url.searchParams.set("via", "share");
+    const shareData = {
+      title: "Denk mee over werk vinden en medewerkers werven",
+      text: "Ken jij iemand die recent werk heeft gezocht of medewerkers heeft geworven? Vul dit korte afstudeeronderzoek van Crispy in.",
+      url: url.toString(),
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        showTemporaryShareStatus("shared");
+        return;
+      } catch (shareError) {
+        if (
+          shareError instanceof DOMException &&
+          shareError.name === "AbortError"
+        ) {
+          return;
+        }
+      }
+    }
+
+    if (!navigator.clipboard) {
+      showTemporaryShareStatus("error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      showTemporaryShareStatus("copied");
+    } catch {
+      showTemporaryShareStatus("error");
     }
   }
 
@@ -378,27 +441,44 @@ export function Screener() {
                   : "Bedankt voor het invullen. Je reactie helpt bij mijn afstudeeronderzoek. Zoals aangegeven neem ik geen contact met je op voor een interview."
               }
             >
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <Button
+                  type="button"
                   size="lg"
                   onClick={() => goTo(steps[steps.length - 2])}
-                  className="back-button"
+                  className="back-button w-full sm:w-auto"
                 >
                   <ArrowLeft aria-hidden="true" className="back-arrow" /> Antwoorden bekijken
                 </Button>
                 <Button
-                  variant="ghost"
+                  type="button"
+                  variant="outline"
                   size="lg"
-                  onClick={() => {
-                    setAnswers(initialAnswers);
-                    setSubmission(null);
-                    setSubmissionStatus("idle");
-                    setContactConsent(false);
-                    goTo("intro");
-                  }}
+                  onClick={shareResearch}
+                  className="w-full sm:w-auto"
                 >
-                  Opnieuw beginnen
+                  {shareStatus === "shared" || shareStatus === "copied" ? (
+                    <Check aria-hidden="true" />
+                  ) : (
+                    <Share2 aria-hidden="true" />
+                  )}
+                  {shareStatus === "shared"
+                    ? "Gedeeld"
+                    : shareStatus === "copied"
+                      ? "Link gekopieerd"
+                      : shareStatus === "error"
+                        ? "Kopiëren mislukt"
+                        : "Onderzoek delen"}
                 </Button>
+                <span className="sr-only" role="status" aria-live="polite">
+                  {shareStatus === "shared"
+                    ? "Het onderzoek is gedeeld."
+                    : shareStatus === "copied"
+                      ? "De link is naar het klembord gekopieerd."
+                      : shareStatus === "error"
+                        ? "De link kon niet worden gekopieerd. Kopieer de link uit de adresbalk."
+                        : ""}
+                </span>
               </div>
             </StepFrame>
           </>

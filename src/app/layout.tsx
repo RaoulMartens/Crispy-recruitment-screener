@@ -5,23 +5,27 @@ import "@fontsource/poppins/600.css";
 import "@fontsource/poppins/800.css";
 import "./globals.css";
 
+const siteUrl = "https://crispy-recruitment-screener.vercel.app";
+const title = "Denk mee over werk vinden en medewerkers werven";
+const description =
+  "Ken jij iemand die recent werk heeft gezocht of medewerkers heeft geworven? Help mee met een kort afstudeeronderzoek van Crispy.";
+
 export const metadata: Metadata = {
-  title: "Denk mee over werk vinden en medewerkers werven",
-  description:
-    "Voor mijn afstudeeronderzoek bij Crispy zoek ik werkzoekenden en mensen die betrokken zijn bij het werven van medewerkers voor een kort interview.",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
   openGraph: {
     type: "website",
     locale: "nl_NL",
-    title: "Denk mee over werk vinden en medewerkers werven",
-    description:
-      "Voor mijn afstudeeronderzoek bij Crispy zoek ik werkzoekenden en mensen die betrokken zijn bij het werven van medewerkers voor een kort interview.",
+    url: siteUrl,
+    title,
+    description,
     siteName: "Crispy afstudeeronderzoek",
   },
   twitter: {
-    card: "summary",
-    title: "Denk mee over werk vinden en medewerkers werven",
-    description:
-      "Voor mijn afstudeeronderzoek bij Crispy zoek ik werkzoekenden en mensen die betrokken zijn bij het werven van medewerkers voor een kort interview.",
+    card: "summary_large_image",
+    title,
+    description,
   },
   icons: {
     icon: "/icon.svg",
