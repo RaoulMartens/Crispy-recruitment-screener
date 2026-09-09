@@ -108,8 +108,6 @@ export function Screener() {
     const url = new URL("/", window.location.origin);
     url.searchParams.set("via", "share");
     const shareData = {
-      title: "Denk mee over werk vinden en medewerkers werven",
-      text: "Ken jij iemand die recent werk heeft gezocht of medewerkers heeft geworven? Vul dit korte afstudeeronderzoek van Crispy in.",
       url: url.toString(),
     };
 
