@@ -158,6 +158,94 @@
   will-change: transform, opacity;
 }
 
+.fortune-cookie-stage {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  margin-bottom: 1.75rem;
+  container-type: inline-size;
+}
+
+.fortune-cookie {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 930 / 575;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.fortune-cookie:disabled {
+  cursor: default;
+}
+
+.fortune-cookie:focus-visible {
+  border-radius: var(--radius-md);
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+
+.fortune-cookie-motion {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 58%;
+}
+
+.fortune-cookie-frame {
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.fortune-cookie-message {
+  --fortune-paper-rotation: -2.5deg;
+  position: absolute;
+  z-index: 1;
+  top: 38%;
+  left: 25%;
+  display: grid;
+  width: 50%;
+  height: 22%;
+  margin: 0;
+  padding-inline: 3%;
+  place-items: center;
+  overflow: hidden;
+  color: rgb(72 55 43 / 78%);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(0.6875rem, 2.7cqi, 0.9375rem);
+  font-weight: 400;
+  line-height: 1.24;
+  letter-spacing: 0.005em;
+  text-align: center;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transform: rotate(var(--fortune-paper-rotation));
+}
+
+.fortune-cookie-copy {
+  display: grid;
+  gap: 0.025em;
+  max-width: 100%;
+}
+
+.fortune-cookie-line {
+  display: flex;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.fortune-cookie-word {
+  display: inline-block;
+  transform: translateY(var(--fortune-word-y))
+    rotate(var(--fortune-word-rotation));
+}
+
+.fortune-cookie-word + .fortune-cookie-word {
+  margin-left: 0.26em;
+}
+
 @media (hover: hover) {
   .screener [data-slot="button"][data-variant="default"]:hover {
     background: var(--primary-hover);
@@ -176,6 +264,10 @@
   .screener .back-button:hover .back-arrow {
     transform: translateX(-3px);
   }
+  .fortune-cookie-stage[data-state="idle"] .fortune-cookie:hover .fortune-cookie-motion {
+    animation: fortune-cookie-hover-wiggle 680ms ease-in-out infinite;
+    filter: drop-shadow(0 16px 16px rgb(17 18 37 / 14%));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -191,11 +283,80 @@
   .completion-confetti-piece {
     animation: confetti-reduced 500ms ease-out var(--confetti-delay) forwards;
   }
+  .fortune-cookie-motion {
+    animation: none !important;
+    transform: none !important;
+  }
+  .fortune-cookie-message {
+    animation: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .fortune-cookie-stage[data-state="idle"] .fortune-cookie-motion {
+    animation: fortune-cookie-invite 3.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 180ms ease-out;
+    filter: drop-shadow(0 12px 13px rgb(17 18 37 / 10%));
+    will-change: transform;
+  }
+  .fortune-cookie-stage[data-state="idle"] .fortune-cookie:active .fortune-cookie-motion {
+    animation-play-state: paused;
+    transform: translateY(1px) scale(0.99);
+  }
   .step-enter {
     animation: step-enter 160ms ease-out;
+  }
+  .fortune-cookie-message {
+    animation: fortune-cookie-message-reveal 280ms cubic-bezier(0.16, 1, 0.3, 1)
+      both;
+  }
+  @keyframes fortune-cookie-invite {
+    0%,
+    58%,
+    100% {
+      transform: rotate(0deg) scale(1);
+    }
+    65% {
+      transform: rotate(-0.55deg) scale(1.006);
+    }
+    72% {
+      transform: rotate(0.65deg) scale(1.009);
+    }
+    79% {
+      transform: rotate(-0.25deg) scale(1.004);
+    }
+    87% {
+      transform: rotate(0deg) scale(1);
+    }
+  }
+  @keyframes fortune-cookie-hover-wiggle {
+    0%,
+    100% {
+      transform: translateY(-2px) rotate(0deg) scale(1.012);
+    }
+    20% {
+      transform: translateY(-2px) rotate(-1.1deg) scale(1.012);
+    }
+    40% {
+      transform: translateY(-2px) rotate(1deg) scale(1.012);
+    }
+    60% {
+      transform: translateY(-2px) rotate(-0.7deg) scale(1.012);
+    }
+    80% {
+      transform: translateY(-2px) rotate(0.45deg) scale(1.012);
+    }
+  }
+  @keyframes fortune-cookie-message-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(3px) rotate(var(--fortune-paper-rotation));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(var(--fortune-paper-rotation));
+    }
   }
   @keyframes step-enter {
     from {

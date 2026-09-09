@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/tooltip";
 import { StepFrame } from "@/components/screener/step-frame";
 import { CompletionConfetti } from "@/components/screener/completion-confetti";
+import { FortuneCookieAnimation } from "@/components/screener/fortune-cookie-animation";
+import type { Fortune } from "@/lib/screener/fortunes";
+import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
 import {
   initialAnswers,
   questions,
@@ -35,6 +38,7 @@ export function Screener() {
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
   const [error, setError] = useState<string | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
+  const [selectedFortune, setSelectedFortune] = useState<Fortune | null>(null);
   const [submissionStatus, setSubmissionStatus] = useState<
     "idle" | "submitting" | "complete"
   >("idle");
@@ -84,6 +88,7 @@ export function Screener() {
     setAnswers((current) => ({ ...current, [field]: value }));
     setError(null);
     setSubmission(null);
+    setSelectedFortune(null);
     setSubmissionStatus("idle");
     if (field === "interview" && value === "no") {
       setContactConsent(false);
@@ -184,7 +189,11 @@ export function Screener() {
         if (!response.ok) {
           throw new Error(result.error ?? "Opslaan is niet gelukt. Probeer het opnieuw.");
         }
+        const nextFortune = selectFortuneForParticipant(
+          nextSubmission.participantType,
+        );
         setSubmission(nextSubmission);
+        setSelectedFortune(nextFortune);
         setSubmissionStatus("complete");
         goTo("complete");
       } catch (submitError) {
@@ -366,6 +375,7 @@ export function Screener() {
                         setContactConsent(event.target.checked);
                         setConsentError(null);
                         setSubmission(null);
+                        setSelectedFortune(null);
                       }}
                       aria-invalid={Boolean(consentError)}
                       aria-describedby={consentError ? "contact-privacy consent-error" : "contact-privacy"}
@@ -410,23 +420,9 @@ export function Screener() {
         {stepId === "complete" && submission && (
           <>
             {submission.openToInterview && <CompletionConfetti />}
-            <Image
-              src={
-                submission.openToInterview
-                  ? "/interview-thank-you.webp"
-                  : "/thank-you.webp"
-              }
-              alt={
-                submission.openToInterview
-                  ? "Collega's vieren samen een welkom moment."
-                  : "Een man kijkt verbaasd in een kantoor."
-              }
-              width={submission.openToInterview ? 400 : 341}
-              height={submission.openToInterview ? 300 : 192}
-              unoptimized
-              loading="lazy"
-              className="mb-7 h-auto w-full rounded-md"
-            />
+            {selectedFortune ? (
+              <FortuneCookieAnimation fortune={selectedFortune} />
+            ) : null}
             <StepFrame
               key={stepId}
               title={
