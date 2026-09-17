@@ -31,9 +31,7 @@ The new questionnaire uses 25 columns and writes to a separate tab named `<GOOGL
 
 The server suppresses identical retries for one minute per running instance. A failed Sheets write returns an error and allows a retry.
 
-## Google Maps route preview
-
-The optional location screen shows a Google Maps directions preview after both town names have been entered. Enable the Maps Embed API in a Google Cloud project and set `NEXT_PUBLIC_GOOGLE_MAPS_EMBED_API_KEY` in `.env.local` and in Vercel. This is a browser-visible key: restrict it to the Maps Embed API and your localhost/production website referrers. Restart the dev server after adding the key. Without a key, participants can still open the route in Google Maps using the link; no map is loaded in the form. The form remains fully usable when either or both towns are left empty.
+The optional location screen asks for home and work town names without showing a map or sending them to a map provider.
 
 ## Checks
 

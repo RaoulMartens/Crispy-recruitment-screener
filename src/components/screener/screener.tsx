@@ -17,7 +17,6 @@ import {
 import { StepFrame } from "@/components/screener/step-frame";
 import { CompletionConfetti } from "@/components/screener/completion-confetti";
 import { FortuneCookieAnimation } from "@/components/screener/fortune-cookie-animation";
-import { CommuteRoutePreview } from "@/components/screener/commute-route-preview";
 import type { Fortune } from "@/lib/screener/fortunes";
 import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
 import {
@@ -335,7 +334,6 @@ export function Screener() {
                       />
                     </div>
                   </div>
-                  <CommuteRoutePreview home={answers.workerHomeLocation} work={answers.workerWorkLocation} />
                 </div>
               ) : question.kind === "choice" ? (
                 <div>
