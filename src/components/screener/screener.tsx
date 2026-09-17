@@ -28,6 +28,24 @@ const descriptions: Partial<Record<StepId, string>> = {
 type Completion =
   | { registered: true; fortune: Fortune; screenCount: number; submission: Submission }
   | { registered: false; fortune: Fortune; screenCount: number; review: ReviewAnswers };
+type ShareStatus = "idle" | "shared" | "copied" | "error";
+
+function ShareResearchButton({ status, onShare, variant = "default", className }: {
+  status: ShareStatus;
+  onShare: () => void;
+  variant?: "default" | "ghost";
+  className?: string;
+}) {
+  return <>
+    <Button type="button" size="lg" variant={variant} className={className} onClick={onShare}>
+      {status === "shared" || status === "copied" ? <Check aria-hidden="true" /> : <Share2 aria-hidden="true" />}
+      {status === "shared" ? "Gedeeld" : status === "copied" ? "Link gekopieerd" : status === "error" ? "Kopiëren mislukt" : "Onderzoek delen"}
+    </Button>
+    <span className="sr-only" role="status">
+      {status === "copied" ? "De link is naar het klembord gekopieerd." : status === "shared" ? "Het onderzoek is gedeeld." : status === "error" ? "De link kon niet worden gekopieerd. Kopieer de link uit de adresbalk." : ""}
+    </span>
+  </>;
+}
 
 function ReviewSection({ title, rows }: { title: string; rows: { label: string; value: string }[] }) {
   return <section className="space-y-4">
@@ -92,7 +110,7 @@ export function Screener() {
   const [completion, setCompletion] = useState<Completion | null>(null);
   const [viewingAnswers, setViewingAnswers] = useState(false);
   const [visitedAnswers, setVisitedAnswers] = useState(false);
-  const [shareStatus, setShareStatus] = useState<"idle" | "shared" | "copied" | "error">("idle");
+  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
   const sendingRef = useRef(false);
   const focusFieldRef = useRef<string | null>(null);
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -252,9 +270,9 @@ export function Screener() {
               </div>}
               {Object.values(errors).some(Boolean) && <p role="alert" className="sr-only">Controleer de gemarkeerde velden.</p>}
               {sendError && <p role="alert" className="mt-5 text-sm text-destructive">{sendError}</p>}
-              <div className="mt-8 flex items-center justify-between gap-4">
-                {stepId !== "intro" ? <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground"><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug</Button> : <span />}
-                <Button type="submit" size="lg" className="next-button" disabled={busy}>{busy ? "Versturen…" : stepId === "contact" ? noInvitation ? "Afronden" : "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
+              <div className={stepId === "intro" ? "mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" : "mt-8 flex items-center justify-between gap-4"}>
+                {stepId !== "intro" ? <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground"><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug</Button> : <ShareResearchButton status={shareStatus} onShare={shareResearch} variant="ghost" className="-ml-4 self-start text-muted-foreground" />}
+                <Button type="submit" size="lg" className={stepId === "intro" ? "next-button w-full sm:w-auto" : "next-button"} disabled={busy}>{busy ? "Versturen…" : stepId === "contact" ? noInvitation ? "Afronden" : "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
               </div>
             </fieldset>
           </form>
@@ -267,9 +285,8 @@ export function Screener() {
               <FortuneCookieAnimation fortune={completion.fortune} />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button type="button" variant="ghost" size="lg" className="back-button -ml-4 text-muted-foreground" onClick={() => { setVisitedAnswers(true); setViewingAnswers(true); window.scrollTo({ top: 0, behavior: "instant" }); }}><ArrowLeft aria-hidden="true" className="back-arrow" /> Antwoorden bekijken</Button>
-                <Button type="button" size="lg" onClick={shareResearch}>{shareStatus === "shared" || shareStatus === "copied" ? <Check aria-hidden="true" /> : <Share2 aria-hidden="true" />}{shareStatus === "shared" ? "Gedeeld" : shareStatus === "copied" ? "Link gekopieerd" : shareStatus === "error" ? "Kopiëren mislukt" : "Onderzoek delen"}</Button>
+                <ShareResearchButton status={shareStatus} onShare={shareResearch} />
               </div>
-              <span className="sr-only" role="status">{shareStatus === "copied" ? "De link is naar het klembord gekopieerd." : shareStatus === "shared" ? "Het onderzoek is gedeeld." : shareStatus === "error" ? "De link kon niet worden gekopieerd. Kopieer de link uit de adresbalk." : ""}</span>
             </div>
             <div hidden={!viewingAnswers}>
               <SubmittedAnswers review={completion.registered ? completion.submission : completion.review} contact={completion.registered ? completion.submission.contact : undefined} />
