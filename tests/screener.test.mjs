@@ -1,148 +1,85 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  initialAnswers,
-  getSteps,
-  getQuestionIds,
-  validateStep,
-  firstInvalidStep,
-  createSubmission,
-} from "../src/lib/screener/steps.ts";
+import { FORM_VERSION, initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, createReviewAnswers, parseSubmission, hasWorkplace } from "../src/lib/screener/steps.ts";
+import { sheetHeaders, toSheetRow, SHEET_SUFFIX } from "../src/lib/screener/submission-storage.ts";
 
-const filled = {
-  ...initialAnswers,
-  participantType: "both",
-  employerLocation: " Venlo ",
-  employerSize: "6–10",
-  employerHiringRole: "partial",
-  employerRecurringNeed: "yes",
-  employerCase: "maybe",
-  employerFunctions: " Techniek ",
-  employerInterview: "maybe",
-  workerHomeLocation: " Venray ",
-  workerWorkLocation: " Venlo ",
-  workerSituation: "employed",
-  workerActiveSearch: "no",
-  workerOpenToWork: "maybe",
-  workerOpenReason: " Meer ruimte ",
-  workerDecisions: ["considered-stayed", "applied-stayed"],
-  workerCase: "yes",
-  workerInterview: "yes",
-  name: " Raoul ",
-  email: " raoul@example.com ",
-  phone: " +31 6 12345678 ",
-  contactPreference: "whatsapp",
-  consent: "yes",
-};
-
-test("employer, worker and both routes have the requested order", () => {
-  const employer = getSteps({ ...filled, participantType: "employer" });
-  const worker = getSteps({ ...filled, participantType: "job-seeker" });
-  const both = getSteps(filled);
-
-  assert.deepEqual(employer, [
-    "intro", "participant", "employerLocation", "employerSize", "employerHiringRole",
-    "employerRecurringNeed", "employerCase", "employerFunctions", "employerInterview",
-    "name", "email", "phone", "contactPreference", "consent", "complete",
-  ]);
-  assert.deepEqual(worker, [
-    "intro", "participant", "workerLocations", "workerSituation", "workerActiveSearch",
-    "workerOpenToWork", "workerOpenReason", "workerDecisions", "workerCase",
-    "workerInterview", "name", "email", "phone", "contactPreference", "consent", "complete",
-  ]);
-  assert.equal(both[both.indexOf("workerLocations") - 1], "bridge");
-  assert.equal(both[both.indexOf("workerLocations") + 1], "workerSituation");
-  assert.ok(!worker.includes("workerRegion"));
-  assert.equal(both.filter((step) => step === "name").length, 1);
-  assert.equal(both.filter((step) => step === "consent").length, 1);
-  assert.ok(both.indexOf("employerInterview") < both.indexOf("bridge"));
+function valid(participantType = "both") {
+  return { ...initialAnswers, participantType, employerLocation: " Venlo ", employerType: " Bakkerij ", employerSize: "2–9", staffingNeed: "multiple",
+    workerSituation: "employed", workerHomeLocation: " Venray ", workerWorkLocation: " Venlo ", workerActiveSearch: "yes", workerOpenToWork: "no",
+    name: " Test ", email: " test@example.com " };
+}
+test("four screens per perspective, five for both; no separate intro or contact questions", () => {
+  assert.deepEqual(getSteps(valid("personal")), ["intro", "worker", "contact", "complete"]);
+  assert.deepEqual(getSteps(valid("employer")), ["intro", "employer", "contact", "complete"]);
+  assert.deepEqual(getSteps(valid()), ["intro", "employer", "worker", "contact", "complete"]);
 });
-
-test("no hiring role stops employer route but not the worker half of both", () => {
-  const employer = { ...filled, participantType: "employer", employerHiringRole: "no" };
-  assert.deepEqual(getSteps(employer), [
-    "intro", "participant", "employerLocation", "employerSize", "employerHiringRole", "complete",
-  ]);
-  const both = getSteps({ ...filled, employerHiringRole: "no" });
-  assert.equal(both[both.indexOf("employerHiringRole") + 1], "bridge");
-  assert.ok(both.includes("workerInterview"));
+test("all employer fields are grouped and validated with no automatic exclusion", () => {
+  assert.deepEqual(Object.keys(validateStep("employer", initialAnswers)), ["employerLocation", "employerType", "employerSize", "staffingNeed"]);
+  for (const size of ["0–1", "2–9", "10–19", "20 of meer", "Weet ik niet"]) {
+    for (const need of ["multiple", "once", "no", "unknown"]) assert.equal(firstInvalidStep({ ...valid("employer"), employerSize: size, staffingNeed: need }), undefined);
+  }
 });
-
-test("worker conditional questions follow actual searching and openness", () => {
-  const active = getQuestionIds({ ...filled, workerActiveSearch: "yes" });
-  assert.ok(!active.includes("workerOpenToWork"));
-  assert.ok(!active.includes("workerOpenReason"));
-  const notOpen = getQuestionIds({ ...filled, workerOpenToWork: "no" });
-  assert.ok(notOpen.includes("workerOpenToWork"));
-  assert.ok(!notOpen.includes("workerOpenReason"));
-  const other = getQuestionIds({ ...filled, workerSituation: "other" });
-  assert.equal(other[other.indexOf("workerSituation") + 1], "workerSituationOther");
+test("home is required, workplace optional and excluded when not working", () => {
+  const answers = { ...valid("personal"), workerSituation: "not-working", workerWorkLocation: "Stale work town" };
+  assert.equal(hasWorkplace(answers), false);
+  assert.equal(firstInvalidStep(answers), undefined);
+  assert.equal("workLocation" in createSubmission(answers).worker, false);
+  assert.ok(validateStep("worker", { ...answers, workerHomeLocation: " " }).workerHomeLocation);
+  assert.equal(firstInvalidStep({ ...valid("personal"), workerWorkLocation: "" }), undefined);
 });
-
-test("interview no skips contact; maybe permits contact", () => {
-  const no = { ...filled, employerInterview: "no", workerInterview: "no" };
-  assert.ok(!getQuestionIds(no).includes("name"));
-  const submission = createSubmission(no);
-  assert.equal(submission.interviewInterest, false);
-  assert.equal(submission.consent, false);
-  assert.equal("contact" in submission, false);
-
-  const maybe = { ...no, workerInterview: "maybe" };
-  assert.ok(getQuestionIds(maybe).includes("consent"));
-  assert.equal(createSubmission(maybe).interviewInterest, true);
+test("recent searching and current openness remain independent and always required", () => {
+  for (const searched of ["yes", "no"]) {
+    for (const openness of ["yes", "maybe", "no"]) {
+      const answers = { ...valid("personal"), workerActiveSearch: searched, workerOpenToWork: openness };
+      const submission = createSubmission(answers);
+      assert.equal(submission.worker.activeSearch, searched);
+      assert.equal(submission.worker.openToWork, openness);
+    }
+    assert.ok(validateStep("worker", { ...valid("personal"), workerActiveSearch: searched, workerOpenToWork: "" }).workerOpenToWork);
+  }
 });
-
-test("no consent never sends entered contact details", () => {
-  const answers = { ...filled, consent: "no" };
-  const submission = createSubmission(answers);
-  assert.equal(submission.interviewInterest, true);
-  assert.equal(submission.consent, false);
-  assert.equal("contact" in submission, false);
-  assert.equal(answers.email, " raoul@example.com ");
+test("route changes omit inactive answers, trim values, and keep home/work independent", () => {
+  const employer = createSubmission(valid("employer"));
+  assert.equal("worker" in employer, false);
+  const personal = createSubmission(valid("personal"));
+  assert.equal("employer" in personal, false);
+  assert.equal(personal.worker.homeLocation, "Venray");
+  assert.equal(personal.worker.workLocation, "Venlo");
+  assert.deepEqual(personal.contact, { name: "Test", email: "test@example.com" });
+  const both = createSubmission({ ...valid(), employerLocation: "Maastricht", workerWorkLocation: "" });
+  assert.equal("workLocation" in both.worker, false);
 });
-
-test("only active route fields are submitted and values are trimmed", () => {
-  const submission = createSubmission(filled);
-  assert.equal(submission.employer.location, "Venlo");
-  assert.equal(submission.employer.functions, "Techniek");
-  assert.equal(submission.worker.homeLocation, "Venray");
-  assert.equal(submission.worker.workLocation, "Venlo");
-  assert.equal("region" in submission.worker, false);
-  assert.deepEqual(submission.worker.decisions, ["considered-stayed", "applied-stayed"]);
-  assert.deepEqual(submission.contact, {
-    name: "Raoul", email: "raoul@example.com", phone: "+31 6 12345678", preference: "whatsapp",
-  });
-
-  const workerOnly = createSubmission({ ...filled, participantType: "job-seeker", workerActiveSearch: "yes" });
-  assert.equal("employer" in workerOnly, false);
-  assert.equal("openToWork" in workerOnly.worker, false);
-  assert.equal("openReason" in workerOnly.worker, false);
+test("registration requires valid contact data and carries consent from the submit action", () => {
+  const errors = validateStep("contact", initialAnswers);
+  assert.equal(errors.name, "Vul je naam in.");
+  assert.equal(errors.email, "Vul een geldig e-mailadres in.");
+  assert.equal(createSubmission(valid()).consent, true);
+  for (const overrides of [{ name: " " }, { email: "wrong" }]) assert.throws(() => createSubmission({ ...valid(), ...overrides }));
 });
-
-test("optional text is optional, required choices and exclusive none are enforced", () => {
-  assert.equal(validateStep("workerOpenReason", { ...filled, workerOpenReason: "" }), null);
-  assert.equal(validateStep("phone", { ...filled, phone: "", contactPreference: "email" }), null);
-  assert.ok(validateStep("phone", { ...filled, phone: "", contactPreference: "whatsapp" }));
-  assert.equal(firstInvalidStep({ ...filled, phone: "", contactPreference: "whatsapp" }), "phone");
-  assert.ok(validateStep("workerDecisions", { ...filled, workerDecisions: ["none", "changed-job"] }));
-  assert.ok(validateStep("workerDecisions", { ...filled, workerDecisions: [] }));
-  assert.equal(validateStep("workerDecisions", { ...filled, workerDecisions: ["none"] }), null);
-  assert.ok(validateStep("employerSize", { ...filled, employerSize: "invalid" }));
-  assert.equal(validateStep("workerLocations", { ...filled, workerHomeLocation: "", workerWorkLocation: "" }), null);
-  assert.ok(validateStep("workerLocations", { ...filled, workerHomeLocation: "a".repeat(121) }));
-  assert.ok(validateStep("workerLocations", { ...filled, workerWorkLocation: "a".repeat(121) }));
-  const noLocations = createSubmission({ ...filled, workerHomeLocation: "", workerWorkLocation: "" });
-  assert.equal("homeLocation" in noLocations.worker, false);
-  assert.equal("workLocation" in noLocations.worker, false);
-  assert.ok(validateStep("email", { ...filled, email: "a@@example.com" }));
-  assert.throws(() => createSubmission({ ...filled, workerDecisions: [] }));
+test("opt-out review shows answers without requiring or retaining contact details", () => {
+  const answers = { ...valid("personal"), name: "", email: "" };
+  const review = createReviewAnswers(answers);
+  assert.equal(review.worker.homeLocation, "Venray");
+  assert.equal(review.worker.workLocation, "Venlo");
+  assert.equal("contact" in review, false);
+  assert.equal("consent" in review, false);
+  assert.throws(() => createReviewAnswers({ ...answers, workerHomeLocation: "" }));
 });
-
-test("changing routes preserves drafts without submitting inactive values", () => {
-  const answers = { ...filled, participantType: "employer", workerInterview: "maybe" };
-  const original = structuredClone(answers);
-  const submission = createSubmission(answers);
-  assert.equal("worker" in submission, false);
-  assert.deepEqual(answers, original);
-  assert.equal(createSubmission({ ...answers, participantType: "both" }).worker.interview, "maybe");
+test("server accepts exactly the compact schema and rejects missing consent and legacy fields", () => {
+  const payload = createSubmission(valid());
+  assert.deepEqual(parseSubmission(payload), payload);
+  for (const invalid of [null, [], {}, { ...payload, consent: false }, { ...payload, formVersion: "v4" }, { ...payload, contact: { ...payload.contact, phone: "0612345678" } }, { ...payload, employer: { ...payload.employer, hiringRole: "direct" } }, { ...payload, worker: { ...payload.worker, openToWork: "" } }]) assert.equal(parseSubmission(invalid), null);
+  assert.equal(parseSubmission({ ...createSubmission(valid("personal")), employer: payload.employer }), null);
+  assert.equal(parseSubmission({ ...payload, worker: { ...payload.worker, situation: "not-working" } }), null);
+});
+test("storage preserves older tabs and records version and consent time in the row", () => {
+  assert.equal(SHEET_SUFFIX, "v4 compact");
+  const row = toSheetRow(createSubmission(valid("personal")), "2026-09-17T12:00:00.000Z");
+  assert.equal(row.length, sheetHeaders.length);
+  assert.equal(row[1], FORM_VERSION);
+  assert.equal(row[2], row[0]);
+  assert.deepEqual(row.slice(4, 8), ["", "", "", ""]);
+  assert.equal(row[11], "Ja");
+  assert.equal(row[12], "Nee");
+  assert.equal(row[15], "Ja");
 });

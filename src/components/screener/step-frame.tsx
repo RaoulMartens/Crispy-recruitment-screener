@@ -4,12 +4,13 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 type StepFrameProps = {
   title: string;
-  description: string;
+  description?: ReactNode;
   children: ReactNode;
   roomyDescription?: boolean;
+  visuallyHiddenTitle?: boolean;
 };
 
-export function StepFrame({ title, description, children, roomyDescription = false }: StepFrameProps) {
+export function StepFrame({ title, description, children, roomyDescription = false, visuallyHiddenTitle = false }: StepFrameProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
@@ -21,16 +22,16 @@ export function StepFrame({ title, description, children, roomyDescription = fal
         id="step-title"
         ref={headingRef}
         tabIndex={-1}
-        className="text-[1.75rem] leading-[1.1] font-semibold tracking-[-0.035em] text-balance outline-none sm:text-[2.25rem]"
+        className={visuallyHiddenTitle ? "sr-only" : "text-[1.75rem] leading-[1.1] font-semibold tracking-[-0.035em] text-balance outline-none sm:text-[2.25rem]"}
       >
         {title}
       </h1>
-      <p
+      {description && <p
         id="step-description"
         className={`${roomyDescription ? "mt-4" : "mt-2"} text-[0.9375rem] leading-[1.55] text-muted-foreground`}
       >
         {description}
-      </p>
+      </p>}
       <div className="mt-7">{children}</div>
     </section>
   );

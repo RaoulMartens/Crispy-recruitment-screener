@@ -44,7 +44,7 @@ test("each audience has all five tones with six fortunes each", () => {
 });
 
 test("participant types map to the correct audience", () => {
-  assert.equal(getFortuneAudience("job-seeker"), "jobSeeker");
+  assert.equal(getFortuneAudience("personal"), "jobSeeker");
   assert.equal(getFortuneAudience("employer"), "employer");
   assert.equal(getFortuneAudience("both"), "both");
 });
@@ -52,7 +52,7 @@ test("participant types map to the correct audience", () => {
 test("a session keeps one selected fortune without selecting again", () => {
   const storage = createStorage();
   let selectionCount = 0;
-  const first = selectFortuneForParticipant("job-seeker", {
+  const first = selectFortuneForParticipant("personal", {
     storage,
     randomIndex(poolSize) {
       selectionCount += 1;
@@ -60,7 +60,7 @@ test("a session keeps one selected fortune without selecting again", () => {
       return 17;
     },
   });
-  const second = selectFortuneForParticipant("job-seeker", {
+  const second = selectFortuneForParticipant("personal", {
     storage,
     randomIndex() {
       throw new Error("A stored fortune must not be selected again.");
@@ -74,7 +74,7 @@ test("a session keeps one selected fortune without selecting again", () => {
 
 test("audience pools remain isolated in the same session", () => {
   const storage = createStorage();
-  const jobSeekerFortune = selectFortuneForParticipant("job-seeker", {
+  const jobSeekerFortune = selectFortuneForParticipant("personal", {
     storage,
     randomIndex: () => 0,
   });

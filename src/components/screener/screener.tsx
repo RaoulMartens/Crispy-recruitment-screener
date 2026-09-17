@@ -2,549 +2,284 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import welcomeCover from "../../../public/welcome-cover.webp";
 import { ArrowLeft, ArrowRight, Check, Info, Share2 } from "lucide-react";
+import welcomeCover from "../../../public/welcome-cover.webp";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { StepFrame } from "@/components/screener/step-frame";
+import { TextField, ChoiceField, SelectField } from "@/components/screener/form-fields";
 import { CompletionConfetti } from "@/components/screener/completion-confetti";
 import { FortuneCookieAnimation } from "@/components/screener/fortune-cookie-animation";
 import type { Fortune } from "@/lib/screener/fortunes";
 import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
 import {
-  initialAnswers,
-  questions,
-  getSteps,
-  getQuestionIds,
-  validateStep,
-  firstInvalidStep,
-  createSubmission,
-  type Answers,
-  type StepId,
-  type Question,
-  type Submission,
-  type WorkerDecision,
+  initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, createReviewAnswers, isParticipantType, hasWorkplace,
+  participantOptions, employerSizeOptions, staffingNeedOptions, workerSituationOptions, yesNoOptions, opennessOptions,
+  type Answers, type FieldErrors, type StepId, type Submission, type ReviewAnswers,
 } from "@/lib/screener/steps";
+
+const titles: Record<StepId, string> = {
+  intro: "Denk mee over werk en personeel", employer: "Over jullie organisatie", worker: "Over jouw werk",
+  contact: "Mag ik je mailen?", complete: "Bedankt",
+};
+const descriptions: Partial<Record<StepId, string>> = {
+  intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe arbeidsrelaties tussen kleinere werkgevers en mensen in Noord-Limburg ontstaan, en wat ervoor zorgt dat die wel of niet goed werken.",
+  employer: "Vul dit in voor de vestiging waarvoor jij betrokken bent bij het aannemen van personeel.",
+  contact: "Ik mail je als jouw situatie aansluit op de gesprekken die ik wil voeren. Het gesprek duurt ongeveer 30–45 minuten. Je beslist daarna of je meedoet.",
+};
+type Completion =
+  | { registered: true; fortune: Fortune; screenCount: number; submission: Submission }
+  | { registered: false; fortune: Fortune; screenCount: number; review: ReviewAnswers };
+
+function ReviewSection({ title, rows }: { title: string; rows: { label: string; value: string }[] }) {
+  return <section className="space-y-4">
+    <h2 className="text-xl font-semibold sm:text-2xl">{title}</h2>
+    <dl className="space-y-4">
+      {rows.map(({ label, value }) => <div key={label}>
+        <dt className="text-sm text-muted-foreground">{label}</dt>
+        <dd className="mt-1 text-sm">{value}</dd>
+      </div>)}
+    </dl>
+  </section>;
+}
+
+function SubmittedAnswers({ review, contact }: { review: ReviewAnswers; contact?: Submission["contact"] }) {
+  const labelFor = (options: readonly { value: string; label: string }[], value: string) =>
+    options.find((option) => option.value === value)?.label ?? value;
+  const { employer, worker } = review;
+  return <div className="space-y-9">
+    <ReviewSection title="Perspectief" rows={[{ label: "Waarover wil je vertellen?", value: labelFor(participantOptions, review.participantType) }]} />
+    {employer && <ReviewSection title="Over jullie organisatie" rows={[
+      { label: "Vestigingsplaats", value: employer.location },
+      { label: "Type bedrijf of organisatie", value: employer.organizationType },
+      { label: "Aantal mensen op deze vestiging", value: employer.size },
+      { label: "Personeelsbehoefte in de afgelopen twee jaar", value: labelFor(staffingNeedOptions, employer.staffingNeed) },
+    ]} />}
+    {worker && <ReviewSection title="Over jouw werk" rows={[
+      { label: "Huidige werksituatie", value: labelFor(workerSituationOptions, worker.situation) },
+      { label: "Woonplaats", value: worker.homeLocation },
+      ...(worker.situation !== "not-working" ? [{ label: "Werkplaats", value: worker.workLocation ?? "Niet ingevuld" }] : []),
+      { label: "Afgelopen drie maanden gericht gezocht", value: labelFor(yesNoOptions, worker.activeSearch) },
+      { label: "Nu open voor een nieuwe baan", value: labelFor(opennessOptions, worker.openToWork) },
+    ]} />}
+    {contact && <ReviewSection title="Contactgegevens" rows={[{ label: "Naam", value: contact.name }, { label: "E-mailadres", value: contact.email }]} />}
+  </div>;
+}
+
+function PrivacyInfo() {
+  const [open, setOpen] = useState(false);
+  return <span className="group relative inline-flex shrink-0" onBlur={(event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+  }} onKeyDown={(event) => {
+    if (event.key === "Escape") { setOpen(false); event.currentTarget.querySelector("button")?.blur(); }
+  }}>
+    <button type="button" aria-label="Meer over je gegevens" aria-controls="email-privacy-info" aria-expanded={open}
+      onClick={() => setOpen((current) => !current)} className="flex size-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+      <Info size={16} aria-hidden="true" />
+    </button>
+    <span id="email-privacy-info" role="group" aria-label="Meer over je gegevens" data-open={open}
+      className="invisible absolute top-full -left-24 z-20 w-[min(20rem,calc(100vw-3rem))] rounded-md border border-border bg-background p-3 text-xs leading-5 text-foreground opacity-0 shadow-md transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 data-[open=true]:visible data-[open=true]:opacity-100 sm:left-0">
+      Crispy en HAN hebben toegang tot de gegevens. De gegevens worden 6 maanden bewaard. Voor vragen of een verzoek om je gegevens te verwijderen kun je mailen naar <a href="mailto:raoul@crispy.nl" className="underline underline-offset-2">raoul@crispy.nl</a>.
+    </span>
+  </span>;
+}
 
 export function Screener() {
   const [stepId, setStepId] = useState<StepId>("intro");
-  const [answers, setAnswers] = useState<Answers>(initialAnswers);
-  const [error, setError] = useState<string | null>(null);
-  const [submission, setSubmission] = useState<Submission | null>(null);
-  const [selectedFortune, setSelectedFortune] = useState<Fortune | null>(null);
-  const [submissionStatus, setSubmissionStatus] = useState<
-    "idle" | "submitting" | "complete"
-  >("idle");
-  const [privacyTooltipOpen, setPrivacyTooltipOpen] = useState(false);
-  const [shareStatus, setShareStatus] = useState<
-    "idle" | "shared" | "copied" | "error"
-  >("idle");
-  const firstOptionRef = useRef<HTMLButtonElement>(null);
-  const firstCheckboxRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const shareStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [answers, setAnswers] = useState<Answers>({ ...initialAnswers });
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [noInvitation, setNoInvitation] = useState(false);
+  const [completion, setCompletion] = useState<Completion | null>(null);
+  const [viewingAnswers, setViewingAnswers] = useState(false);
+  const [visitedAnswers, setVisitedAnswers] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "shared" | "copied" | "error">("idle");
+  const sendingRef = useRef(false);
+  const focusFieldRef = useRef<string | null>(null);
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const steps = getSteps(answers);
   const stepIndex = steps.indexOf(stepId);
-  const question: Question | null =
-    stepId === "intro" || stepId === "bridge" || stepId === "complete"
-      ? null
-      : questions[stepId];
-  const questionCount = getQuestionIds(answers).length;
-  const questionIndex = question ? getQuestionIds(answers).indexOf(stepId as keyof typeof questions) + 1 : 0;
-  const isLastQuestion =
-    stepIndex === steps.length - 2 &&
-    !(question?.kind === "choice" && !answers[question.field]);
+  const screenCount = completion?.screenCount ?? steps.length;
+  const screenNumber = completion ? screenCount : stepIndex + 1;
 
   useEffect(() => {
-    if (error) (firstOptionRef.current ?? firstCheckboxRef.current ?? inputRef.current)?.focus();
-  }, [error, stepId]);
-
-  useEffect(
-    () => () => {
-      if (shareStatusTimerRef.current) {
-        clearTimeout(shareStatusTimerRef.current);
-      }
-    },
-    [],
-  );
+    if (focusFieldRef.current) {
+      const field = document.getElementById(focusFieldRef.current);
+      const control = field?.querySelector<HTMLElement>("button, input, select") ?? field;
+      control?.focus();
+      focusFieldRef.current = null;
+    }
+  }, [errors, stepId]);
+  useEffect(() => () => { if (shareTimerRef.current) clearTimeout(shareTimerRef.current); }, []);
 
   function goTo(id: StepId) {
-    setError(null);
-    setPrivacyTooltipOpen(false);
-    if (id !== "complete") setSubmissionStatus("idle");
+    setErrors({});
+    setSendError(null);
     setStepId(id);
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
-
-  function updateAnswer(field: Exclude<keyof Answers, "workerDecisions">, value: string) {
-    setAnswers((current) => ({
-      ...current,
-      [field]: value,
-      ...(["participantType", "employerHiringRole", "employerInterview", "workerInterview"].includes(field)
-        ? { consent: "" }
-        : {}),
-    }));
-    setError(null);
-    setSubmission(null);
-    setSelectedFortune(null);
-    setSubmissionStatus("idle");
+  function updateAnswer<Key extends keyof Answers>(field: Key, value: Answers[Key]) {
+    setAnswers((current) => ({ ...current, [field]: value }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+    setSendError(null);
   }
-
-  function toggleDecision(value: WorkerDecision) {
-    setAnswers((current) => ({
-      ...current,
-      workerDecisions: current.workerDecisions.includes(value)
-        ? current.workerDecisions.filter((item) => item !== value)
-        : value === "none"
-          ? ["none"]
-          : [...current.workerDecisions.filter((item) => item !== "none"), value],
-    }));
-    setError(null);
-    setSubmission(null);
-    setSelectedFortune(null);
-    setSubmissionStatus("idle");
+  function fieldProps(field: keyof Answers) {
+    return { id: field, value: answers[field], onChange: (value: string) => updateAnswer(field, value), error: errors[field] };
   }
-
-  function showTemporaryShareStatus(
-    status: Exclude<typeof shareStatus, "idle">,
-  ) {
-    if (shareStatusTimerRef.current) {
-      clearTimeout(shareStatusTimerRef.current);
+  function showErrors(id: StepId, nextErrors: FieldErrors) {
+    focusFieldRef.current = Object.keys(nextErrors)[0] ?? null;
+    setStepId(id);
+    setErrors(nextErrors);
+  }
+  function finish(registered: false): void;
+  function finish(registered: true, submission: Submission): void;
+  function finish(registered: boolean, submission?: Submission) {
+    if (!isParticipantType(answers.participantType)) return;
+    // Opting out keeps answers only in this page for the review; nothing is sent or persisted.
+    const fortune = selectFortuneForParticipant(answers.participantType, registered ? {} : { storage: null });
+    if (registered && submission) setCompletion({ registered: true, fortune, screenCount: steps.length, submission });
+    else setCompletion({ registered: false, fortune, screenCount: steps.length, review: createReviewAnswers(answers) });
+    setViewingAnswers(false);
+    setVisitedAnswers(false);
+    setAnswers({ ...initialAnswers });
+    setNoInvitation(false);
+    goTo("complete");
+  }
+  async function next(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (sendingRef.current) return;
+    if (stepId === "contact" && noInvitation) { finish(false); return; }
+    const nextErrors = validateStep(stepId, answers);
+    if (Object.keys(nextErrors).length) { showErrors(stepId, nextErrors); return; }
+    if (stepId !== "contact") { goTo(steps[stepIndex + 1]); return; }
+    const invalid = firstInvalidStep(answers);
+    if (invalid) { showErrors(invalid, validateStep(invalid, answers)); return; }
+    sendingRef.current = true;
+    setBusy(true);
+    setSendError(null);
+    const submission = createSubmission(answers);
+    let saved = false;
+    try {
+      const response = await fetch("/api/submissions", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(submission),
+      });
+      const result: unknown = await response.json();
+      saved = response.ok && typeof result === "object" && result !== null && "ok" in result && result.ok === true;
+    } catch {
+      saved = false;
+    } finally {
+      sendingRef.current = false;
+      setBusy(false);
     }
-    setShareStatus(status);
-    shareStatusTimerRef.current = setTimeout(() => {
-      setShareStatus("idle");
-      shareStatusTimerRef.current = null;
-    }, 2500);
+    if (saved) finish(true, submission);
+    else setSendError("Je aanmelding is nog niet verstuurd. Probeer het opnieuw.");
   }
-
+  function showShareStatus(status: Exclude<typeof shareStatus, "idle">) {
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    setShareStatus(status);
+    shareTimerRef.current = setTimeout(() => setShareStatus("idle"), 2500);
+  }
   async function shareResearch() {
     const url = new URL("/", window.location.origin);
     url.searchParams.set("via", "share");
-    const shareData = {
-      text: "Ken je iemand voor wie dit relevant is? Stuur 'm door.",
-      url: url.toString(),
-    };
-
     if (navigator.share) {
       try {
-        await navigator.share(shareData);
-        showTemporaryShareStatus("shared");
-        return;
-      } catch (shareError) {
-        if (
-          shareError instanceof DOMException &&
-          shareError.name === "AbortError"
-        ) {
-          return;
-        }
+        await navigator.share({ text: "Ken je iemand voor wie dit relevant is? Stuur 'm door.", url: url.toString() });
+        showShareStatus("shared"); return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
       }
     }
-
-    if (!navigator.clipboard) {
-      showTemporaryShareStatus("error");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      showTemporaryShareStatus("copied");
-    } catch {
-      showTemporaryShareStatus("error");
-    }
+    try { await navigator.clipboard.writeText(url.toString()); showShareStatus("copied"); }
+    catch { showShareStatus("error"); }
   }
 
-  async function next(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (submissionStatus === "submitting") return;
-    const message = validateStep(stepId, answers);
-    if (message) {
-      setError(message);
-      (firstOptionRef.current ?? firstCheckboxRef.current ?? inputRef.current)?.focus();
-      return;
-    }
-    if (
-      question?.kind === "text" &&
-      question.inputType === "email" &&
-      inputRef.current?.validity.typeMismatch
-    ) {
-      setError(
-        "Vul een geldig e-mailadres in, bijvoorbeeld naam@voorbeeld.nl.",
-      );
-      return;
-    }
-    if (isLastQuestion) {
-      const invalid = firstInvalidStep(answers);
-      if (invalid) {
-        setStepId(invalid);
-        setError(validateStep(invalid, answers));
-        return;
-      }
-      setError(null);
-      setSubmissionStatus("submitting");
-      try {
-        const nextSubmission = createSubmission(answers);
-        const response = await fetch("/api/submissions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(nextSubmission),
-        });
-        const result: { error?: string } = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error ?? "Opslaan is niet gelukt. Probeer het opnieuw.");
-        }
-        const nextFortune = selectFortuneForParticipant(
-          nextSubmission.participantType,
-        );
-        setSubmission(nextSubmission);
-        setSelectedFortune(nextFortune);
-        setSubmissionStatus("complete");
-        goTo("complete");
-      } catch (submitError) {
-        setSubmissionStatus("idle");
-        setError(
-          submitError instanceof Error && submitError.message !== "Failed to fetch"
-            ? submitError.message
-            : "Opslaan is niet gelukt. Probeer het opnieuw.",
-        );
-      }
-      return;
-    }
-    goTo(steps[stepIndex + 1]);
-  }
-
-  return (
-    <div className="flex min-h-svh flex-col">
-      {stepId === "intro" && (
-        <div className="relative h-44 w-full shrink-0 sm:h-58">
-          <Image
-            src={welcomeCover}
-            alt="Iemand werkt aan een bureau met een laptop en telefoon."
-            fill
-            sizes="100vw"
-            preload
-            placeholder="blur"
-            className="object-cover object-[50%_43%]"
-          />
-        </div>
-      )}
+  return <div className="flex min-h-svh flex-col">
+    {stepId === "intro" && <div className="relative h-44 w-full shrink-0 sm:h-58">
+      <Image src={welcomeCover} alt="Iemand werkt aan een bureau met een laptop en telefoon." fill sizes="100vw" preload placeholder="blur" className="object-cover object-[50%_43%]" />
+    </div>}
     <div className="screener mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 sm:px-10">
-      {stepId === "intro" && (
-        <header className="flex flex-col gap-1.5 py-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-8">
-          <p className="text-xs text-muted-foreground">Deelnemen aan onderzoek</p>
-          <span className="text-xs text-muted-foreground">Invullen duurt ongeveer <strong className="font-semibold">1–2 minuten</strong>.</span>
-        </header>
-      )}
-      <main
-        id="main-content"
-        className="mx-auto w-full max-w-[34rem] flex-1 pb-16 pt-10 sm:pt-16"
-      >
-        {question && (
-          <div className="mb-6 flex min-h-5 items-center justify-between gap-4 text-xs text-muted-foreground tabular-nums">
-            <span>{question.label}</span>
-            <span aria-label={`Vraag ${questionIndex} van ${questionCount}`}>
-              {questionIndex} / {questionCount}
-            </span>
-          </div>
-        )}
-        {stepId === "intro" && (
-          <StepFrame
-            key={stepId}
-            title="Hoe komen mensen en werk bij elkaar?"
-            description="Voor mijn afstudeerproject bij Crispy onderzoek ik hoe kleinere werkgevers en mensen in Noord-Limburg bij elkaar komen rondom werk, en wat ervoor zorgt dat dat wel of niet goed uitpakt. Daarover ga ik graag ongeveer 30 minuten met je in gesprek."
-            roomyDescription
-          >
-            <p className="mb-3 text-sm leading-[1.55] text-muted-foreground">
-              Met dit korte formulier kijk ik of je binnen mijn onderzoek
-              past en hoe ik contact met je kan opnemen.
-            </p>
-            <p className="mb-8 text-sm leading-[1.55] text-muted-foreground">Als kleine dank krijg je aan het einde een <span className="font-medium">persoonlijke digitale verrassing</span>.</p>
-            <Button
-              size="lg"
-              onClick={() => goTo("participant")}
-              className="next-button"
-            >
-              Start <ArrowRight aria-hidden="true" className="next-arrow" />
-            </Button>
-          </StepFrame>
-        )}
-        {stepId === "bridge" && (
-          <StepFrame
-            key={stepId}
-            title="Nog een paar vragen over jouw werk"
-            description="Je gaf aan dat beide situaties op jou van toepassing zijn. Ik heb nog een paar korte vragen over jouw eigen werksituatie."
-          >
-            <div className="flex items-center justify-between gap-4">
-              <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground">
-                <ArrowLeft aria-hidden="true" className="back-arrow" /> Terug
-              </Button>
-              <Button type="button" size="lg" onClick={() => goTo("workerLocations")} className="next-button">
-                Volgende <ArrowRight aria-hidden="true" className="next-arrow" />
-              </Button>
+      <main id="main-content" className="mx-auto w-full max-w-[34rem] flex-1 pb-16 pt-8 sm:pt-12">
+        <div className="mb-6 flex min-h-5 items-center justify-between gap-4 text-xs text-muted-foreground tabular-nums">
+          <span>{stepId === "intro" ? "Invullen duurt ongeveer 1–2 minuten." : stepId === "contact" ? "Contactgegevens" : stepId === "complete" ? "Afgerond" : titles[stepId]}</span>
+          {(isParticipantType(answers.participantType) || completion) && <span aria-label={`Scherm ${screenNumber} van ${screenCount}`}>{screenNumber} / {screenCount}</span>}
+        </div>
+        {stepId !== "complete" && <StepFrame key={stepId} title={titles[stepId]} description={descriptions[stepId]} roomyDescription={stepId === "intro"} visuallyHiddenTitle={stepId === "worker"}>
+          <form onSubmit={next} noValidate aria-labelledby="step-title" aria-busy={busy}>
+            <fieldset disabled={busy} className="min-w-0">
+              {stepId === "intro" && <>
+                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Daarover ga ik graag ongeveer 30–45 minuten met je in gesprek. Met een paar korte vragen kijk ik wie ik kan uitnodigen. Aanmelden is vrijblijvend.</p>
+                <p className="mb-8 text-sm leading-[1.55] font-medium">Als bedankje krijg je aan het einde een digitaal gelukskoekje.</p>
+                <ChoiceField {...fieldProps("participantType")} label="Waarover wil je vertellen?" options={participantOptions} />
+                {answers.participantType === "both" && <p className="mt-3 text-sm leading-[1.55] text-muted-foreground">Je krijgt een kort onderdeel over je organisatie en een over jouw eigen werk.</p>}
+              </>}
+              {stepId === "employer" && <div className="space-y-9">
+                <section aria-labelledby="organization-block" className="space-y-5">
+                  <h2 id="organization-block" className="text-xl font-semibold sm:text-2xl">De organisatie</h2>
+                  <TextField {...fieldProps("employerLocation")} label="In welke plaats is deze vestiging gevestigd?" placeholder="Plaatsnaam" />
+                  <TextField {...fieldProps("employerType")} label="Wat voor bedrijf of organisatie is het?" hint="Bijvoorbeeld een bakkerij, installatiebedrijf of zorgpraktijk." maxLength={200} />
+                  <SelectField {...fieldProps("employerSize")} label="Hoeveel mensen werken op deze vestiging?" options={employerSizeOptions} />
+                </section>
+                <section aria-labelledby="staffing-block" className="space-y-5 border-t border-border pt-7">
+                  <h2 id="staffing-block" className="text-xl font-semibold sm:text-2xl">Personeelsbehoefte</h2>
+                  <ChoiceField {...fieldProps("staffingNeed")} label="Heeft deze vestiging de afgelopen twee jaar extra of vervangend personeel nodig gehad?" hint="Het maakt niet uit of er uiteindelijk iemand is aangenomen." options={staffingNeedOptions} />
+                </section>
+              </div>}
+              {stepId === "worker" && <div className="space-y-9">
+                <section aria-labelledby="work-block" className="space-y-5">
+                  <h2 id="work-block" className="text-xl font-semibold sm:text-2xl">Je werksituatie en locatie</h2>
+                  <ChoiceField {...fieldProps("workerSituation")} label="Wat is je huidige werksituatie?" hint="Ook een bijbaan telt als werk." options={workerSituationOptions} />
+                  <TextField {...fieldProps("workerHomeLocation")} label="Waar woon je?" placeholder="Plaatsnaam" />
+                  {hasWorkplace(answers) && <TextField {...fieldProps("workerWorkLocation")} label="Waar werk je?" placeholder="Plaatsnaam" optional hint="Geen vaste werkplaats? Dan mag je dit leeg laten." />}
+                </section>
+                <section aria-labelledby="search-block" className="space-y-6 border-t border-border pt-7">
+                  <h2 id="search-block" className="text-xl font-semibold sm:text-2xl">Zoeken en openstaan</h2>
+                  <ChoiceField {...fieldProps("workerActiveSearch")} label="Heb je de afgelopen drie maanden gericht naar een baan gezocht?" hint="Bijvoorbeeld vacatures gezocht, contact opgenomen over een baan of gesolliciteerd." options={yesNoOptions} />
+                  <ChoiceField {...fieldProps("workerOpenToWork")} label="Sta je op dit moment open voor een nieuwe baan?" options={opennessOptions} />
+                </section>
+              </div>}
+              {stepId === "contact" && <div className="space-y-5">
+                <TextField {...fieldProps("name")} label="Naam" hint="Een voornaam is voldoende." autoComplete="given-name" disabled={noInvitation} />
+                <TextField {...fieldProps("email")} label="E-mailadres" type="email" autoComplete="email" maxLength={254} placeholder="naam@voorbeeld.nl" accessory={<PrivacyInfo />} disabled={noInvitation} />
+                <p className="text-sm leading-[1.55] text-muted-foreground">Je antwoorden worden gebruikt om interviewdeelnemers te selecteren. Je naam en e-mailadres worden gebruikt om contact met je op te nemen.</p>
+                <div>
+                  <label className="flex min-h-10 cursor-pointer items-center gap-3 py-1 text-sm leading-[1.55]" htmlFor="noInvitation">
+                    <input id="noInvitation" name="noInvitation" type="checkbox" checked={noInvitation} onChange={(event) => { setNoInvitation(event.target.checked); setErrors({}); setSendError(null); }}
+                      className="size-5 shrink-0 accent-primary" />
+                    <span>Ik wil geen uitnodiging ontvangen.</span>
+                  </label>
+                  {noInvitation && <p className="mt-1 text-sm leading-[1.55] text-muted-foreground">Je gegevens worden niet verstuurd of opgeslagen. Je kunt nog steeds je gelukskoekje openen.</p>}
+                </div>
+              </div>}
+              {Object.values(errors).some(Boolean) && <p role="alert" className="sr-only">Controleer de gemarkeerde velden.</p>}
+              {sendError && <p role="alert" className="mt-5 text-sm text-destructive">{sendError}</p>}
+              <div className="mt-8 flex items-center justify-between gap-4">
+                {stepId !== "intro" ? <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground"><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug</Button> : <span />}
+                <Button type="submit" size="lg" className="next-button" disabled={busy}>{busy ? "Versturen…" : stepId === "contact" ? noInvitation ? "Afronden" : "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
+              </div>
+            </fieldset>
+          </form>
+        </StepFrame>}
+        {stepId === "complete" && completion && <>
+          {completion.registered && !visitedAnswers && <CompletionConfetti />}
+          <StepFrame key="complete" title={viewingAnswers ? "Jouw antwoorden" : completion.registered ? "Heel erg bedankt!" : "Bedankt voor je tijd"}
+            description={viewingAnswers ? completion.registered ? "Dit zijn de antwoorden die je hebt ingestuurd." : "Dit zijn de antwoorden die je hebt ingevuld. Ze zijn niet verstuurd of opgeslagen." : completion.registered ? <>Als jouw situatie aansluit op de gesprekken die ik wil voeren, mail ik je om iets af te spreken. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</> : <>Je bent niet aangemeld voor een interview en ontvangt geen uitnodiging. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</>}>
+            <div hidden={viewingAnswers}>
+              <FortuneCookieAnimation fortune={completion.fortune} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Button type="button" variant="ghost" size="lg" className="back-button -ml-4 text-muted-foreground" onClick={() => { setVisitedAnswers(true); setViewingAnswers(true); window.scrollTo({ top: 0, behavior: "instant" }); }}><ArrowLeft aria-hidden="true" className="back-arrow" /> Antwoorden bekijken</Button>
+                <Button type="button" size="lg" onClick={shareResearch}>{shareStatus === "shared" || shareStatus === "copied" ? <Check aria-hidden="true" /> : <Share2 aria-hidden="true" />}{shareStatus === "shared" ? "Gedeeld" : shareStatus === "copied" ? "Link gekopieerd" : shareStatus === "error" ? "Kopiëren mislukt" : "Onderzoek delen"}</Button>
+              </div>
+              <span className="sr-only" role="status">{shareStatus === "copied" ? "De link is naar het klembord gekopieerd." : shareStatus === "shared" ? "Het onderzoek is gedeeld." : shareStatus === "error" ? "De link kon niet worden gekopieerd. Kopieer de link uit de adresbalk." : ""}</span>
+            </div>
+            <div hidden={!viewingAnswers}>
+              <SubmittedAnswers review={completion.registered ? completion.submission : completion.review} contact={completion.registered ? completion.submission.contact : undefined} />
+              <Button type="button" variant="ghost" size="lg" className="back-button -ml-4 mt-8 text-muted-foreground" onClick={() => { setViewingAnswers(false); window.scrollTo({ top: 0, behavior: "instant" }); }}><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug naar bedankje</Button>
             </div>
           </StepFrame>
-        )}
-        {question && (
-          <StepFrame
-            key={stepId}
-            title={question.title}
-            description={question.description}
-          >
-            <form
-              onSubmit={next}
-              noValidate
-              aria-labelledby="step-title"
-              aria-describedby="step-description"
-            >
-              {question.kind === "locations" ? (
-                <div>
-                  <div className="grid gap-4">
-                    <div>
-                      <Label htmlFor="worker-home-location" className="mb-2 block text-sm font-medium">Waar woon je?</Label>
-                      <Input
-                        ref={inputRef}
-                        id="worker-home-location"
-                        name="workerHomeLocation"
-                        value={answers.workerHomeLocation}
-                        onChange={(event) => updateAnswer("workerHomeLocation", event.target.value)}
-                        placeholder="Vul je plaatsnaam in"
-                        maxLength={120}
-                        autoComplete="off"
-                        className="h-12 rounded-md px-3.5 text-base md:text-base"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="worker-work-location" className="mb-2 block text-sm font-medium">Waar werk je?</Label>
-                      <Input
-                        id="worker-work-location"
-                        name="workerWorkLocation"
-                        value={answers.workerWorkLocation}
-                        onChange={(event) => updateAnswer("workerWorkLocation", event.target.value)}
-                        placeholder="Vul de plaatsnaam van je werk in"
-                        maxLength={120}
-                        autoComplete="off"
-                        className="h-12 rounded-md px-3.5 text-base md:text-base"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : question.kind === "choice" ? (
-                <div>
-                <RadioGroup
-                  value={answers[question.field]}
-                  onValueChange={(value) => updateAnswer(question.field, value)}
-                  aria-labelledby="step-title"
-                  aria-required="true"
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={error ? "step-error" : "step-description"}
-                  className="gap-2"
-                >
-                  {question.options.map((option, index) => (
-                    <Label
-                      key={option.value}
-                      htmlFor={`${stepId}-${option.value}`}
-                      className="answer-row flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border px-3.5 py-3 text-[0.9375rem] leading-[1.45] font-normal"
-                    >
-                      <RadioGroupItem
-                        ref={index === 0 ? firstOptionRef : undefined}
-                        id={`${stepId}-${option.value}`}
-                        value={option.value}
-                        className="shrink-0"
-                      />
-                      <span>{option.label}</span>
-                    </Label>
-                  ))}
-                </RadioGroup>
-                </div>
-              ) : question.kind === "multiple" ? (
-                <div role="group" aria-labelledby="step-title" aria-describedby={error ? "step-error" : "step-description"}>
-                  {question.options.map((option, index) => (
-                    <Label key={option.value} htmlFor={`${stepId}-${option.value}`} className="answer-row mb-2 flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border px-3.5 py-3 text-[0.9375rem] leading-[1.45] font-normal">
-                      <input
-                        ref={index === 0 ? firstCheckboxRef : undefined}
-                        id={`${stepId}-${option.value}`}
-                        type="checkbox"
-                        checked={answers.workerDecisions.includes(option.value)}
-                        onChange={() => toggleDecision(option.value)}
-                        className="size-4 shrink-0 cursor-pointer accent-primary"
-                      />
-                      <span>{option.label}</span>
-                    </Label>
-                  ))}
-                </div>
-              ) : (
-                <div className="relative">
-                  <Input
-                    ref={inputRef}
-                    id={question.field}
-                    name={question.field}
-                    aria-labelledby="step-title"
-                    aria-describedby={error ? "step-error" : "step-description"}
-                    aria-invalid={Boolean(error)}
-                    required={!question.optional}
-                    type={question.inputType ?? "text"}
-                    inputMode={question.inputType === "email" ? "email" : question.inputType === "tel" ? "tel" : "text"}
-                    value={answers[question.field]}
-                    onChange={(event) =>
-                      updateAnswer(question.field, event.target.value)
-                    }
-                    placeholder={question.placeholder}
-                    autoComplete={question.autoComplete ?? "off"}
-                    maxLength={question.maxLength}
-                    className="h-12 rounded-md px-3.5 text-base md:text-base"
-                  />
-                  {(stepId === "name" || stepId === "email" || stepId === "phone") && (
-                      <div className="mt-2 flex justify-end sm:absolute sm:right-0 sm:bottom-full sm:mt-0 sm:mb-2">
-                        <TooltipProvider>
-                          <Tooltip
-                            open={privacyTooltipOpen}
-                            onOpenChange={setPrivacyTooltipOpen}
-                          >
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                aria-label="Privacyinformatie"
-                                onClick={() =>
-                                  setPrivacyTooltipOpen((open) => !open)
-                                }
-                                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary"
-                              >
-                                Privacyinformatie <Info aria-hidden="true" className="size-3.5" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent id="contact-privacy">
-                              Ik gebruik je gegevens alleen voor dit afstudeeronderzoek.
-                              Toegang: Crispy Concepts B.V. en HAN University of Applied
-                              Sciences. Bewaartermijn: 6 maanden. Je kunt je gegevens
-                              laten verwijderen door te mailen naar raoul@crispy.nl.
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    )}
-                </div>
-              )}
-              {error && (
-                <p
-                  id="step-error"
-                  role="alert"
-                  className="mt-4 text-sm text-destructive"
-                >
-                  {error}
-                </p>
-              )}
-              <div className="mt-8 flex items-center justify-between gap-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="lg"
-                  onClick={() => goTo(steps[stepIndex - 1])}
-                  className="back-button -ml-4 text-muted-foreground"
-                >
-                  <ArrowLeft aria-hidden="true" className="back-arrow" /> Terug
-                </Button>
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={submissionStatus === "submitting"}
-                  className="next-button"
-                >
-                  {submissionStatus === "submitting"
-                    ? "Opslaan…"
-                    : isLastQuestion
-                      ? "Afronden"
-                      : "Volgende"}{" "}
-                  <ArrowRight aria-hidden="true" className="next-arrow" />
-                </Button>
-              </div>
-            </form>
-          </StepFrame>
-        )}
-        {stepId === "complete" && submission && (
-          <>
-            {submission.interviewInterest && submission.consent && <CompletionConfetti />}
-            {selectedFortune ? (
-              <FortuneCookieAnimation fortune={selectedFortune} />
-            ) : null}
-            <StepFrame
-              key={stepId}
-              title={
-                submission.interviewInterest && submission.consent
-                  ? "Bedankt voor je hulp"
-                  : "Bedankt voor het invullen"
-              }
-              description={
-                submission.interviewInterest && submission.consent
-                  ? "Je antwoorden zijn ontvangen. Als jouw situatie goed aansluit op wat ik voor het onderzoek nodig heb, neem ik contact met je op om een gesprek van ongeveer 30 minuten in te plannen."
-                  : submission.participantType === "employer" && submission.employer?.hiringRole === "no"
-                    ? "Op basis van je antwoorden sluit jouw situatie op dit moment minder goed aan bij de deelnemers die ik voor deze onderzoeksronde zoek. Je input helpt me alsnog verder."
-                    : "Je antwoorden zijn ontvangen. Bedankt voor het invullen; er worden geen contactgegevens voor een interview gebruikt."
-              }
-            >
-              <p className="mb-5 text-sm leading-[1.55] text-muted-foreground">
-                {submission.interviewInterest && submission.consent
-                  ? "Tijdens dat gesprek zijn er geen goede of foute antwoorden. Ik wil begrijpen wat er in een echte situatie gebeurde. En zoals beloofd: klik op het digitale gelukskoekje hierboven om je boodschap te ontdekken."
-                  : "Ook voor jou staat het digitale gelukskoekje klaar. Klik erop om je boodschap te ontdekken."}
-              </p>
-              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="lg"
-                  onClick={() => goTo(steps[steps.length - 2])}
-                  className="back-button w-full justify-start text-muted-foreground sm:-ml-4 sm:w-auto"
-                >
-                  <ArrowLeft aria-hidden="true" className="back-arrow" /> Antwoorden bekijken
-                </Button>
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={shareResearch}
-                  className="w-full sm:w-auto"
-                >
-                  {shareStatus === "shared" || shareStatus === "copied" ? (
-                    <Check aria-hidden="true" />
-                  ) : (
-                    <Share2 aria-hidden="true" />
-                  )}
-                  {shareStatus === "shared"
-                    ? "Gedeeld"
-                    : shareStatus === "copied"
-                      ? "Link gekopieerd"
-                      : shareStatus === "error"
-                        ? "Kopiëren mislukt"
-                        : "Onderzoek delen"}
-                </Button>
-                <span className="sr-only" role="status" aria-live="polite">
-                  {shareStatus === "shared"
-                    ? "Het onderzoek is gedeeld."
-                    : shareStatus === "copied"
-                      ? "De link is naar het klembord gekopieerd."
-                      : shareStatus === "error"
-                        ? "De link kon niet worden gekopieerd. Kopieer de link uit de adresbalk."
-                        : ""}
-                </span>
-              </div>
-            </StepFrame>
-          </>
-        )}
+        </>}
       </main>
-      <footer className="mx-auto flex w-full max-w-[34rem] justify-center py-6 text-xs leading-5 text-muted-foreground">
-        <Image
-          src="/crispy-logo.png"
-          alt="Crispy Concepts"
-          width={105}
-          height={34}
-        />
-      </footer>
+      <footer className="mx-auto flex w-full max-w-[34rem] justify-center py-6"><Image src="/crispy-logo.png" alt="Crispy Concepts" width={105} height={34} /></footer>
     </div>
-    </div>
-  );
+  </div>;
 }

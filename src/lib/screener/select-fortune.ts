@@ -19,7 +19,7 @@ type FortuneSelectionOptions = {
 export function getFortuneAudience(
   participantType: ParticipantType,
 ): FortuneAudience {
-  return participantType === "job-seeker" ? "jobSeeker" : participantType;
+  return participantType === "personal" ? "jobSeeker" : participantType;
 }
 
 function hashSeed(seed: string) {
