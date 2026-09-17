@@ -5,7 +5,7 @@ import "@fontsource/poppins/600.css";
 import "@fontsource/poppins/800.css";
 import "./globals.css";
 
-const siteUrl = "https://crispy-recruitment-screener.vercel.app";
+const siteUrl = "https://werkonderzoek-screener.vercel.app";
 const title = "Denk mee over werk en personeel";
 const description =
   "Raoul onderzoekt hoe mensen werk vinden, waarom ze blijven of overstappen en hoe kleinere werkgevers personeel aannemen. Help mee aan zijn afstudeeronderzoek bij Crispy; aanmelden duurt 1–2 minuten.";
