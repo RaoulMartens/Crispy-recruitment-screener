@@ -184,7 +184,7 @@ export function Screener() {
     url.searchParams.set("via", "share");
     if (navigator.share) {
       try {
-        await navigator.share({ text: "Ken je iemand voor wie dit relevant is? Stuur 'm door.", url: url.toString() });
+        await navigator.share({ text: "Misschien iets voor jou: Raoul onderzoekt hoe mensen werk vinden, waarom ze blijven of overstappen en hoe kleinere werkgevers personeel aannemen. Aanmelden voor zijn afstudeeronderzoek bij Crispy duurt 1–2 minuten.", url: url.toString() });
         showShareStatus("shared"); return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;

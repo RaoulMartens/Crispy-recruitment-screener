@@ -8,7 +8,7 @@ import "./globals.css";
 const siteUrl = "https://crispy-recruitment-screener.vercel.app";
 const title = "Denk mee over werk en personeel";
 const description =
-  "Werk je, zoek je werk of ben je betrokken bij personeel aannemen in Noord-Limburg? Help mee met een kort afstudeeronderzoek van Crispy.";
+  "Raoul onderzoekt hoe mensen werk vinden, waarom ze blijven of overstappen en hoe kleinere werkgevers personeel aannemen. Help mee aan zijn afstudeeronderzoek bij Crispy; aanmelden duurt 1–2 minuten.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
