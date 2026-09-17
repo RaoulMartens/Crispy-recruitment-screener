@@ -6,9 +6,9 @@ import "@fontsource/poppins/800.css";
 import "./globals.css";
 
 const siteUrl = "https://crispy-recruitment-screener.vercel.app";
-const title = "Denk mee over werk vinden en medewerkers werven";
+const title = "Denk mee over werk en personeel";
 const description =
-  "Ken jij iemand die recent werk heeft gezocht of medewerkers heeft geworven? Help mee met een kort afstudeeronderzoek van Crispy.";
+  "Werk je, zoek je werk of ben je betrokken bij personeel aannemen in Noord-Limburg? Help mee met een kort afstudeeronderzoek van Crispy.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

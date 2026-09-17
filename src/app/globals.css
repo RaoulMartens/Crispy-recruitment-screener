@@ -101,7 +101,8 @@
   transition: background-color 120ms ease-out, border-color 120ms ease-out;
 }
 
-.screener .answer-row:has([data-state="checked"]) {
+.screener .answer-row:has([data-state="checked"]),
+.screener .answer-row:has(input[type="checkbox"]:checked) {
   background: var(--accent);
   border-color: var(--brand-teal);
 }
@@ -254,7 +255,8 @@
     border-color: var(--input);
     background: var(--secondary);
   }
-  .screener .answer-row:has([data-state="checked"]):hover {
+  .screener .answer-row:has([data-state="checked"]):hover,
+  .screener .answer-row:has(input[type="checkbox"]:checked):hover {
     border-color: var(--brand-teal);
     background: var(--accent);
   }

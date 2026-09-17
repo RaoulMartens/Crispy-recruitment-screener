@@ -6,9 +6,10 @@ type StepFrameProps = {
   title: string;
   description: string;
   children: ReactNode;
+  roomyDescription?: boolean;
 };
 
-export function StepFrame({ title, description, children }: StepFrameProps) {
+export function StepFrame({ title, description, children, roomyDescription = false }: StepFrameProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
@@ -26,7 +27,7 @@ export function StepFrame({ title, description, children }: StepFrameProps) {
       </h1>
       <p
         id="step-description"
-        className="mt-2 text-[0.9375rem] leading-[1.7] text-muted-foreground"
+        className={`${roomyDescription ? "mt-4" : "mt-2"} text-[0.9375rem] leading-[1.55] text-muted-foreground`}
       >
         {description}
       </p>

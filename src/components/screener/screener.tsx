@@ -17,6 +17,7 @@ import {
 import { StepFrame } from "@/components/screener/step-frame";
 import { CompletionConfetti } from "@/components/screener/completion-confetti";
 import { FortuneCookieAnimation } from "@/components/screener/fortune-cookie-animation";
+import { CommuteRoutePreview } from "@/components/screener/commute-route-preview";
 import type { Fortune } from "@/lib/screener/fortunes";
 import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
 import {
@@ -31,6 +32,7 @@ import {
   type StepId,
   type Question,
   type Submission,
+  type WorkerDecision,
 } from "@/lib/screener/steps";
 
 export function Screener() {
@@ -42,30 +44,29 @@ export function Screener() {
   const [submissionStatus, setSubmissionStatus] = useState<
     "idle" | "submitting" | "complete"
   >("idle");
-  const [contactConsent, setContactConsent] = useState(false);
-  const [consentError, setConsentError] = useState<string | null>(null);
   const [privacyTooltipOpen, setPrivacyTooltipOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState<
     "idle" | "shared" | "copied" | "error"
   >("idle");
   const firstOptionRef = useRef<HTMLButtonElement>(null);
+  const firstCheckboxRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const consentRef = useRef<HTMLInputElement>(null);
   const shareStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const steps = getSteps(answers);
   const stepIndex = steps.indexOf(stepId);
   const question: Question | null =
-    stepId === "intro" || stepId === "complete" ? null : questions[stepId];
+    stepId === "intro" || stepId === "bridge" || stepId === "complete"
+      ? null
+      : questions[stepId];
   const questionCount = getQuestionIds(answers).length;
-  const isLastQuestion = stepIndex === steps.length - 2;
+  const questionIndex = question ? getQuestionIds(answers).indexOf(stepId as keyof typeof questions) + 1 : 0;
+  const isLastQuestion =
+    stepIndex === steps.length - 2 &&
+    !(question?.kind === "choice" && !answers[question.field]);
 
   useEffect(() => {
-    if (error) (firstOptionRef.current ?? inputRef.current)?.focus();
+    if (error) (firstOptionRef.current ?? firstCheckboxRef.current ?? inputRef.current)?.focus();
   }, [error, stepId]);
-
-  useEffect(() => {
-    if (consentError) consentRef.current?.focus();
-  }, [consentError]);
 
   useEffect(
     () => () => {
@@ -78,22 +79,38 @@ export function Screener() {
 
   function goTo(id: StepId) {
     setError(null);
-    setConsentError(null);
     setPrivacyTooltipOpen(false);
     if (id !== "complete") setSubmissionStatus("idle");
     setStepId(id);
   }
 
-  function updateAnswer(field: keyof Answers, value: string) {
-    setAnswers((current) => ({ ...current, [field]: value }));
+  function updateAnswer(field: Exclude<keyof Answers, "workerDecisions">, value: string) {
+    setAnswers((current) => ({
+      ...current,
+      [field]: value,
+      ...(["participantType", "employerHiringRole", "employerInterview", "workerInterview"].includes(field)
+        ? { consent: "" }
+        : {}),
+    }));
     setError(null);
     setSubmission(null);
     setSelectedFortune(null);
     setSubmissionStatus("idle");
-    if (field === "interview" && value === "no") {
-      setContactConsent(false);
-      setConsentError(null);
-    }
+  }
+
+  function toggleDecision(value: WorkerDecision) {
+    setAnswers((current) => ({
+      ...current,
+      workerDecisions: current.workerDecisions.includes(value)
+        ? current.workerDecisions.filter((item) => item !== value)
+        : value === "none"
+          ? ["none"]
+          : [...current.workerDecisions.filter((item) => item !== "none"), value],
+    }));
+    setError(null);
+    setSubmission(null);
+    setSelectedFortune(null);
+    setSubmissionStatus("idle");
   }
 
   function showTemporaryShareStatus(
@@ -151,7 +168,7 @@ export function Screener() {
     const message = validateStep(stepId, answers);
     if (message) {
       setError(message);
-      (firstOptionRef.current ?? inputRef.current)?.focus();
+      (firstOptionRef.current ?? firstCheckboxRef.current ?? inputRef.current)?.focus();
       return;
     }
     if (
@@ -169,11 +186,6 @@ export function Screener() {
       if (invalid) {
         setStepId(invalid);
         setError(validateStep(invalid, answers));
-        return;
-      }
-      if (answers.interview === "yes" && !contactConsent) {
-        setConsentError("Geef toestemming om je contactgegevens te gebruiken, of kies bij de interviewvraag voor Nee.");
-        consentRef.current?.focus();
         return;
       }
       setError(null);
@@ -227,8 +239,8 @@ export function Screener() {
     <div className="screener mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 sm:px-10">
       {stepId === "intro" && (
         <header className="flex flex-col gap-1.5 py-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-8">
-          <p className="text-xs font-medium text-muted-foreground">Deelnemen aan onderzoek</p>
-          <span className="text-xs text-muted-foreground">Invullen duurt ongeveer 1–2 minuten.</span>
+          <p className="text-xs text-muted-foreground">Deelnemen aan onderzoek</p>
+          <span className="text-xs text-muted-foreground">Invullen duurt ongeveer <strong className="font-semibold">1–2 minuten</strong>.</span>
         </header>
       )}
       <main
@@ -238,21 +250,23 @@ export function Screener() {
         {question && (
           <div className="mb-6 flex min-h-5 items-center justify-between gap-4 text-xs text-muted-foreground tabular-nums">
             <span>{question.label}</span>
-            <span aria-label={`Vraag ${stepIndex} van ${questionCount}`}>
-              {stepIndex} / {questionCount}
+            <span aria-label={`Vraag ${questionIndex} van ${questionCount}`}>
+              {questionIndex} / {questionCount}
             </span>
           </div>
         )}
         {stepId === "intro" && (
           <StepFrame
             key={stepId}
-            title="Denk mee over werk vinden en medewerkers werven"
-            description="Voor mijn afstudeerproject bij Crispy onderzoek ik hoe werkgevers en werkzoekenden elkaar vinden en beoordelen. Hiervoor zoek ik mensen die later ongeveer 30 minuten met mij in gesprek willen."
+            title="Hoe komen mensen en werk bij elkaar?"
+            description="Voor mijn afstudeerproject bij Crispy onderzoek ik hoe kleinere werkgevers en mensen in Noord-Limburg bij elkaar komen rondom werk, en wat ervoor zorgt dat dat wel of niet goed uitpakt. Daarover ga ik graag ongeveer 30 minuten met je in gesprek."
+            roomyDescription
           >
-            <p className="mb-8 text-sm leading-6 text-muted-foreground">
-              Met dit korte formulier kijk ik alleen of je binnen de doelgroep
+            <p className="mb-3 text-sm leading-[1.55] text-muted-foreground">
+              Met dit korte formulier kijk ik of je binnen mijn onderzoek
               past en hoe ik contact met je kan opnemen.
             </p>
+            <p className="mb-8 text-sm leading-[1.55] text-muted-foreground">Als kleine dank krijg je aan het einde een <span className="font-medium">persoonlijke digitale verrassing</span>.</p>
             <Button
               size="lg"
               onClick={() => goTo("participant")}
@@ -260,6 +274,22 @@ export function Screener() {
             >
               Start <ArrowRight aria-hidden="true" className="next-arrow" />
             </Button>
+          </StepFrame>
+        )}
+        {stepId === "bridge" && (
+          <StepFrame
+            key={stepId}
+            title="Nog een paar vragen over jouw werk"
+            description="Je gaf aan dat beide situaties op jou van toepassing zijn. Ik heb nog een paar korte vragen over jouw eigen werksituatie."
+          >
+            <div className="flex items-center justify-between gap-4">
+              <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground">
+                <ArrowLeft aria-hidden="true" className="back-arrow" /> Terug
+              </Button>
+              <Button type="button" size="lg" onClick={() => goTo("workerLocations")} className="next-button">
+                Volgende <ArrowRight aria-hidden="true" className="next-arrow" />
+              </Button>
+            </div>
           </StepFrame>
         )}
         {question && (
@@ -274,7 +304,41 @@ export function Screener() {
               aria-labelledby="step-title"
               aria-describedby="step-description"
             >
-              {question.kind === "choice" ? (
+              {question.kind === "locations" ? (
+                <div>
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="worker-home-location" className="mb-2 block text-sm font-medium">Waar woon je?</Label>
+                      <Input
+                        ref={inputRef}
+                        id="worker-home-location"
+                        name="workerHomeLocation"
+                        value={answers.workerHomeLocation}
+                        onChange={(event) => updateAnswer("workerHomeLocation", event.target.value)}
+                        placeholder="Vul je plaatsnaam in"
+                        maxLength={120}
+                        autoComplete="off"
+                        className="h-12 rounded-md px-3.5 text-base md:text-base"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="worker-work-location" className="mb-2 block text-sm font-medium">Waar werk je?</Label>
+                      <Input
+                        id="worker-work-location"
+                        name="workerWorkLocation"
+                        value={answers.workerWorkLocation}
+                        onChange={(event) => updateAnswer("workerWorkLocation", event.target.value)}
+                        placeholder="Vul de plaatsnaam van je werk in"
+                        maxLength={120}
+                        autoComplete="off"
+                        className="h-12 rounded-md px-3.5 text-base md:text-base"
+                      />
+                    </div>
+                  </div>
+                  <CommuteRoutePreview home={answers.workerHomeLocation} work={answers.workerWorkLocation} />
+                </div>
+              ) : question.kind === "choice" ? (
+                <div>
                 <RadioGroup
                   value={answers[question.field]}
                   onValueChange={(value) => updateAnswer(question.field, value)}
@@ -300,6 +364,23 @@ export function Screener() {
                     </Label>
                   ))}
                 </RadioGroup>
+                </div>
+              ) : question.kind === "multiple" ? (
+                <div role="group" aria-labelledby="step-title" aria-describedby={error ? "step-error" : "step-description"}>
+                  {question.options.map((option, index) => (
+                    <Label key={option.value} htmlFor={`${stepId}-${option.value}`} className="answer-row mb-2 flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border px-3.5 py-3 text-[0.9375rem] leading-[1.45] font-normal">
+                      <input
+                        ref={index === 0 ? firstCheckboxRef : undefined}
+                        id={`${stepId}-${option.value}`}
+                        type="checkbox"
+                        checked={answers.workerDecisions.includes(option.value)}
+                        onChange={() => toggleDecision(option.value)}
+                        className="size-4 shrink-0 cursor-pointer accent-primary"
+                      />
+                      <span>{option.label}</span>
+                    </Label>
+                  ))}
+                </div>
               ) : (
                 <div className="relative">
                   <Input
@@ -309,9 +390,9 @@ export function Screener() {
                     aria-labelledby="step-title"
                     aria-describedby={error ? "step-error" : "step-description"}
                     aria-invalid={Boolean(error)}
-                    required
+                    required={!question.optional}
                     type={question.inputType ?? "text"}
-                    inputMode={question.inputType === "email" ? "email" : "text"}
+                    inputMode={question.inputType === "email" ? "email" : question.inputType === "tel" ? "tel" : "text"}
                     value={answers[question.field]}
                     onChange={(event) =>
                       updateAnswer(question.field, event.target.value)
@@ -321,8 +402,7 @@ export function Screener() {
                     maxLength={question.maxLength}
                     className="h-12 rounded-md px-3.5 text-base md:text-base"
                   />
-                  {answers.interview === "yes" &&
-                    (stepId === "name" || stepId === "email") && (
+                  {(stepId === "name" || stepId === "email" || stepId === "phone") && (
                       <div className="mt-2 flex justify-end sm:absolute sm:right-0 sm:bottom-full sm:mt-0 sm:mb-2">
                         <TooltipProvider>
                           <Tooltip
@@ -362,34 +442,6 @@ export function Screener() {
                   {error}
                 </p>
               )}
-              {answers.interview === "yes" && stepId === "email" && (
-                <div className="mt-4">
-                  <label htmlFor="contact-consent" className="flex min-h-11 cursor-pointer items-start gap-3 py-2 text-sm leading-6">
-                    <input
-                      ref={consentRef}
-                      id="contact-consent"
-                      type="checkbox"
-                      required
-                      checked={contactConsent}
-                      onChange={(event) => {
-                        setContactConsent(event.target.checked);
-                        setConsentError(null);
-                        setSubmission(null);
-                        setSelectedFortune(null);
-                      }}
-                      aria-invalid={Boolean(consentError)}
-                      aria-describedby={consentError ? "contact-privacy consent-error" : "contact-privacy"}
-                      className="mt-1 size-4 shrink-0 cursor-pointer accent-primary focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary"
-                    />
-                    <span>Ik geef toestemming om mijn gegevens te gebruiken om contact met mij op te nemen voor dit afstudeeronderzoek.</span>
-                  </label>
-                  {consentError && (
-                    <p id="consent-error" role="alert" className="mt-2 text-sm text-destructive">
-                      {consentError}
-                    </p>
-                  )}
-                </div>
-              )}
               <div className="mt-8 flex items-center justify-between gap-4">
                 <Button
                   type="button"
@@ -419,23 +471,30 @@ export function Screener() {
         )}
         {stepId === "complete" && submission && (
           <>
-            {submission.openToInterview && <CompletionConfetti />}
+            {submission.interviewInterest && submission.consent && <CompletionConfetti />}
             {selectedFortune ? (
               <FortuneCookieAnimation fortune={selectedFortune} />
             ) : null}
             <StepFrame
               key={stepId}
               title={
-                submission.openToInterview
-                  ? "Yesss! gelukt"
-                  : "Bedankt voor je reactie"
+                submission.interviewInterest && submission.consent
+                  ? "Bedankt voor je hulp"
+                  : "Bedankt voor het invullen"
               }
               description={
-                submission.openToInterview
-                  ? "Bedankt voor het invullen. Als je binnen de doelgroep past, neem ik mogelijk contact met je op voor een kort interview."
-                  : "Bedankt voor het invullen. Je reactie helpt bij mijn afstudeeronderzoek. Zoals aangegeven neem ik geen contact met je op voor een interview."
+                submission.interviewInterest && submission.consent
+                  ? "Je antwoorden zijn ontvangen. Als jouw situatie goed aansluit op wat ik voor het onderzoek nodig heb, neem ik contact met je op om een gesprek van ongeveer 30 minuten in te plannen."
+                  : submission.participantType === "employer" && submission.employer?.hiringRole === "no"
+                    ? "Op basis van je antwoorden sluit jouw situatie op dit moment minder goed aan bij de deelnemers die ik voor deze onderzoeksronde zoek. Je input helpt me alsnog verder."
+                    : "Je antwoorden zijn ontvangen. Bedankt voor het invullen; er worden geen contactgegevens voor een interview gebruikt."
               }
             >
+              <p className="mb-5 text-sm leading-[1.55] text-muted-foreground">
+                {submission.interviewInterest && submission.consent
+                  ? "Tijdens dat gesprek zijn er geen goede of foute antwoorden. Ik wil begrijpen wat er in een echte situatie gebeurde. En zoals beloofd: klik op het digitale gelukskoekje hierboven om je boodschap te ontdekken."
+                  : "Ook voor jou staat het digitale gelukskoekje klaar. Klik erop om je boodschap te ontdekken."}
+              </p>
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <Button
                   type="button"
