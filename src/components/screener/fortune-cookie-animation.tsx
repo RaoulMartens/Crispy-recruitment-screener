@@ -100,12 +100,32 @@ export function FortuneCookieAnimation({
     useState<AnimationState>("idle");
   const preloadPromiseRef = useRef<Promise<boolean> | null>(null);
   const mountedRef = useRef(true);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     mountedRef.current = true;
     preloadPromiseRef.current = preloadFrames();
     return () => {
       mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || !window.IntersectionObserver) return;
+
+    let inView = true;
+    const updateVisibility = () => setIsVisible(inView && !document.hidden);
+    const observer = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      updateVisibility();
+    });
+    observer.observe(stage);
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", updateVisibility);
     };
   }, []);
 
@@ -150,7 +170,7 @@ export function FortuneCookieAnimation({
   const fortuneLines = balanceFortuneLines(fortune.text);
 
   return (
-    <div className="fortune-cookie-stage" data-state={animationState}>
+    <div ref={stageRef} className="fortune-cookie-stage" data-state={animationState} data-in-view={isVisible}>
       <button
         type="button"
         className="fortune-cookie"

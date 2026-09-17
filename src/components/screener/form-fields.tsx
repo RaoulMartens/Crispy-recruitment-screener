@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 type FieldProps = {
@@ -55,12 +56,15 @@ export function ChoiceField({ id, label, value, onChange, hint, error, options }
 export function SelectField({ id, label, value, onChange, error, options }: FieldProps & { options: readonly string[] }) {
   return <div>
     <Label htmlFor={id} className="mb-2 block text-sm leading-[1.45] font-medium">{label}</Label>
-    <select id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)} required aria-invalid={Boolean(error)}
-      aria-describedby={error ? `${id}-error` : undefined}
-      className="h-12 w-full rounded-md border border-input bg-white px-3.5 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-      <option value="" disabled>Kies een antwoord</option>
-      {options.map((option) => <option key={option} value={option}>{option}</option>)}
-    </select>
+    <div className="relative">
+      <select id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)} required aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className="h-12 w-full appearance-none rounded-md border border-input bg-white pl-3.5 pr-10 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        <option value="" disabled>Kies een antwoord</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-foreground" />
+    </div>
     <FieldError id={id} error={error} />
   </div>;
 }

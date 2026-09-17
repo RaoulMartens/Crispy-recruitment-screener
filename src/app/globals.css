@@ -296,11 +296,14 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .fortune-cookie-stage[data-state="idle"] .fortune-cookie-motion {
-    animation: fortune-cookie-invite 3.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: fortune-cookie-invite 2.2s ease-in-out infinite;
     transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
       filter 180ms ease-out;
     filter: drop-shadow(0 12px 13px rgb(17 18 37 / 10%));
     will-change: transform;
+  }
+  .fortune-cookie-stage[data-in-view="false"] .fortune-cookie-motion {
+    animation-play-state: paused;
   }
   .fortune-cookie-stage[data-state="idle"] .fortune-cookie:active .fortune-cookie-motion {
     animation-play-state: paused;
@@ -315,20 +318,20 @@
   }
   @keyframes fortune-cookie-invite {
     0%,
-    58%,
+    23%,
     100% {
       transform: rotate(0deg) scale(1);
     }
-    65% {
+    30% {
+      transform: rotate(-0.85deg) scale(1.007);
+    }
+    37% {
+      transform: rotate(0.9deg) scale(1.01);
+    }
+    44% {
       transform: rotate(-0.55deg) scale(1.006);
     }
-    72% {
-      transform: rotate(0.65deg) scale(1.009);
-    }
-    79% {
-      transform: rotate(-0.25deg) scale(1.004);
-    }
-    87% {
+    53% {
       transform: rotate(0deg) scale(1);
     }
   }

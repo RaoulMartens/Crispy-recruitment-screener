@@ -23,7 +23,6 @@ const titles: Record<StepId, string> = {
 };
 const descriptions: Partial<Record<StepId, string>> = {
   intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe arbeidsrelaties tussen kleinere werkgevers en mensen in Noord-Limburg ontstaan, en wat ervoor zorgt dat die wel of niet goed werken.",
-  employer: "Vul dit in voor de vestiging waarvoor jij betrokken bent bij het aannemen van personeel.",
   contact: "Ik mail je als jouw situatie aansluit op de gesprekken die ik wil voeren. Het gesprek duurt ongeveer 30–45 minuten. Je beslist daarna of je meedoet.",
 };
 type Completion =
@@ -204,7 +203,7 @@ export function Screener() {
           <span>{stepId === "intro" ? "Invullen duurt ongeveer 1–2 minuten." : stepId === "contact" ? "Contactgegevens" : stepId === "complete" ? "Afgerond" : titles[stepId]}</span>
           {(isParticipantType(answers.participantType) || completion) && <span aria-label={`Scherm ${screenNumber} van ${screenCount}`}>{screenNumber} / {screenCount}</span>}
         </div>
-        {stepId !== "complete" && <StepFrame key={stepId} title={titles[stepId]} description={descriptions[stepId]} roomyDescription={stepId === "intro"} visuallyHiddenTitle={stepId === "worker"}>
+        {stepId !== "complete" && <StepFrame key={stepId} title={titles[stepId]} description={descriptions[stepId]} roomyDescription={stepId === "intro"} visuallyHiddenTitle={stepId === "worker" || stepId === "employer"}>
           <form onSubmit={next} noValidate aria-labelledby="step-title" aria-busy={busy}>
             <fieldset disabled={busy} className="min-w-0">
               {stepId === "intro" && <>
