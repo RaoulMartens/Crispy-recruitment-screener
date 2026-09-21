@@ -1,20 +1,32 @@
-export const FORM_VERSION = "v4-minimal-2" as const;
+export const FORM_VERSION = "v4-employers-3" as const;
+export const LEGACY_FORM_VERSION = "v4-minimal-2" as const;
 export const participantOptions = [
   { value: "employer", label: "Over personeel aannemen" },
   { value: "personal", label: "Over mijn eigen ervaringen en keuzes rondom werk" },
   { value: "both", label: "Over beide" },
 ] as const;
-export const employerSizeOptions = ["0–1", "2–9", "10–19", "20 of meer", "Weet ik niet"] as const;
-export const staffingNeedOptions = [
+export const employerSizeOptions = ["0–1", "2–9", "10–19", "20–49", "50–249", "250 of meer", "Weet ik niet"] as const;
+const legacyEmployerSizeOptions = ["0–1", "2–9", "10–19", "20 of meer", "Weet ik niet"] as const;
+export const legacyStaffingNeedOptions = [
   { value: "multiple", label: "Ja, meerdere keren" },
   { value: "once", label: "Ja, één keer" },
   { value: "no", label: "Nee" },
   { value: "unknown", label: "Weet ik niet" },
 ] as const;
-export const workerSituationOptions = [
+export const recruitmentPatternOptions = [
+  { value: "yes", label: "Ja" },
+  { value: "no", label: "Nee" },
+  { value: "unknown", label: "Weet ik niet" },
+] as const;
+export const legacyWorkerSituationOptions = [
   { value: "employed", label: "Ik werk in loondienst" },
   { value: "self-employed", label: "Ik werk als zelfstandige" },
   { value: "both", label: "Ik werk in loondienst én als zelfstandige" },
+  { value: "not-working", label: "Ik werk op dit moment niet" },
+] as const;
+export const workerSituationOptions = [
+  { value: "employed", label: "Ik werk in loondienst" },
+  { value: "self-employed", label: "Ik werk als zelfstandige" },
   { value: "not-working", label: "Ik werk op dit moment niet" },
 ] as const;
 export const yesNoOptions = [
@@ -32,7 +44,8 @@ export type Answers = {
   employerLocation: string;
   employerType: string;
   employerSize: string;
-  staffingNeed: string;
+  recruitmentPattern: string;
+  recruitmentInvolvement: string;
   workerSituation: string;
   workerHomeLocation: string;
   workerWorkLocation: string;
@@ -45,7 +58,7 @@ export type Answers = {
 export type FieldErrors = Partial<Record<keyof Answers, string>>;
 export const initialAnswers: Answers = {
   participantType: "", employerLocation: "", employerType: "", employerSize: "",
-  staffingNeed: "", workerSituation: "", workerHomeLocation: "", workerWorkLocation: "",
+  recruitmentPattern: "", recruitmentInvolvement: "", workerSituation: "", workerHomeLocation: "", workerWorkLocation: "",
   workerActiveSearch: "", workerOpenToWork: "", name: "", email: "", phone: "",
 };
 export function isParticipantType(value: string): value is ParticipantType {
@@ -75,7 +88,8 @@ export function validateStep(step: StepId, answers: Answers): FieldErrors {
     text("employerLocation", 120, "Vul de vestigingsplaats in.");
     text("employerType", 200, "Vul het type bedrijf of organisatie in.");
     choice("employerSize", employerSizeOptions.map((value) => ({ value })));
-    choice("staffingNeed", staffingNeedOptions);
+    choice("recruitmentPattern", recruitmentPatternOptions);
+    choice("recruitmentInvolvement", yesNoOptions);
   }
   if (step === "worker") {
     choice("workerSituation", workerSituationOptions);
@@ -99,12 +113,34 @@ export function firstInvalidStep(answers: Answers): StepId | undefined {
 export type Submission = {
   formVersion: typeof FORM_VERSION;
   participantType: ParticipantType;
-  employer?: { location: string; organizationType: string; size: string; staffingNeed: string };
+  employer?: { location: string; organizationType: string; size: string; recruitmentPattern: string; recruitmentInvolvement: string };
   worker?: { situation: string; homeLocation: string; workLocation?: string; activeSearch: string; openToWork: string };
   consent: true;
   contact: { name: string; email: string; phone?: string };
 };
+export type LegacySubmission = Omit<Submission, "formVersion" | "employer"> & {
+  formVersion: typeof LEGACY_FORM_VERSION;
+  employer?: { location: string; organizationType: string; size: string; staffingNeed: string };
+};
+export type StoredSubmission = Submission | LegacySubmission;
 export type ReviewAnswers = Pick<Submission, "participantType" | "employer" | "worker">;
+function workerFromAnswers(answers: Answers): NonNullable<Submission["worker"]> {
+  return {
+    situation: answers.workerSituation, homeLocation: answers.workerHomeLocation.trim(),
+    ...(hasWorkplace(answers) && answers.workerWorkLocation.trim() ? { workLocation: answers.workerWorkLocation.trim() } : {}),
+    activeSearch: answers.workerActiveSearch, openToWork: answers.workerOpenToWork,
+  };
+}
+function legacyWorkerFromAnswers(answers: Answers): NonNullable<LegacySubmission["worker"]> {
+  return {
+    situation: answers.workerSituation, homeLocation: answers.workerHomeLocation.trim(),
+    ...(answers.workerSituation !== "not-working" && answers.workerWorkLocation.trim() ? { workLocation: answers.workerWorkLocation.trim() } : {}),
+    activeSearch: answers.workerActiveSearch, openToWork: answers.workerOpenToWork,
+  };
+}
+function contactFromAnswers(answers: Answers): Submission["contact"] {
+  return { name: answers.name.trim(), email: answers.email.trim(), ...(answers.phone.trim() ? { phone: answers.phone.trim() } : {}) };
+}
 export function createReviewAnswers(answers: Answers): ReviewAnswers {
   const invalid = getSteps(answers).find((step) => step !== "contact" && Object.keys(validateStep(step, answers)).length > 0);
   if (invalid || !isParticipantType(answers.participantType)) throw new Error(`Ongeldig scherm: ${invalid ?? "intro"}`);
@@ -114,15 +150,11 @@ export function createReviewAnswers(answers: Answers): ReviewAnswers {
     ...(participantType === "employer" || participantType === "both" ? {
       employer: {
         location: answers.employerLocation.trim(), organizationType: answers.employerType.trim(),
-        size: answers.employerSize, staffingNeed: answers.staffingNeed,
+        size: answers.employerSize, recruitmentPattern: answers.recruitmentPattern, recruitmentInvolvement: answers.recruitmentInvolvement,
       },
     } : {}),
     ...(participantType === "personal" || participantType === "both" ? {
-      worker: {
-        situation: answers.workerSituation, homeLocation: answers.workerHomeLocation.trim(),
-        ...(hasWorkplace(answers) && answers.workerWorkLocation.trim() ? { workLocation: answers.workerWorkLocation.trim() } : {}),
-        activeSearch: answers.workerActiveSearch, openToWork: answers.workerOpenToWork,
-      },
+      worker: workerFromAnswers(answers),
     } : {}),
   };
 }
@@ -132,7 +164,7 @@ export function createSubmission(answers: Answers): Submission {
   return {
     formVersion: FORM_VERSION, ...createReviewAnswers(answers),
     consent: true,
-    contact: { name: answers.name.trim(), email: answers.email.trim(), ...(answers.phone.trim() ? { phone: answers.phone.trim() } : {}) },
+    contact: contactFromAnswers(answers),
   };
 }
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -142,17 +174,25 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: string[]) {
   return Object.keys(value).every((key) => keys.includes(key));
 }
 // Validate at the server boundary too; old or inactive fields never reach storage.
-export function parseSubmission(value: unknown): Submission | null {
+export function parseSubmission(value: unknown): StoredSubmission | null {
   if (!isRecord(value) || !hasOnlyKeys(value, ["formVersion", "participantType", "employer", "worker", "consent", "contact"])) return null;
-  if (value.formVersion !== FORM_VERSION || typeof value.participantType !== "string" || !isParticipantType(value.participantType) || value.consent !== true) return null;
+  if ((value.formVersion !== FORM_VERSION && value.formVersion !== LEGACY_FORM_VERSION) || typeof value.participantType !== "string" || !isParticipantType(value.participantType) || value.consent !== true) return null;
   const answers = { ...initialAnswers, participantType: value.participantType };
   const hasEmployer = value.participantType === "employer" || value.participantType === "both";
   const hasWorker = value.participantType === "personal" || value.participantType === "both";
+  let legacyEmployer: LegacySubmission["employer"];
   if (hasEmployer) {
     const e = value.employer;
-    if (!isRecord(e) || !hasOnlyKeys(e, ["location", "organizationType", "size", "staffingNeed"])) return null;
-    if (typeof e.location !== "string" || typeof e.organizationType !== "string" || typeof e.size !== "string" || typeof e.staffingNeed !== "string") return null;
-    Object.assign(answers, { employerLocation: e.location, employerType: e.organizationType, employerSize: e.size, staffingNeed: e.staffingNeed });
+    if (!isRecord(e) || typeof e.location !== "string" || typeof e.organizationType !== "string" || typeof e.size !== "string") return null;
+    if (value.formVersion === LEGACY_FORM_VERSION) {
+      if (!hasOnlyKeys(e, ["location", "organizationType", "size", "staffingNeed"]) || typeof e.staffingNeed !== "string") return null;
+      if (!e.location.trim() || e.location.trim().length > 120 || !e.organizationType.trim() || e.organizationType.trim().length > 200) return null;
+      if (!legacyEmployerSizeOptions.some((option) => option === e.size) || !legacyStaffingNeedOptions.some((option) => option.value === e.staffingNeed)) return null;
+      legacyEmployer = { location: e.location.trim(), organizationType: e.organizationType.trim(), size: e.size, staffingNeed: e.staffingNeed };
+    } else {
+      if (!hasOnlyKeys(e, ["location", "organizationType", "size", "recruitmentPattern", "recruitmentInvolvement"]) || typeof e.recruitmentPattern !== "string" || typeof e.recruitmentInvolvement !== "string") return null;
+      Object.assign(answers, { employerLocation: e.location, employerType: e.organizationType, employerSize: e.size, recruitmentPattern: e.recruitmentPattern, recruitmentInvolvement: e.recruitmentInvolvement });
+    }
   } else if (value.employer !== undefined) return null;
   if (hasWorker) {
     const w = value.worker;
@@ -160,6 +200,9 @@ export function parseSubmission(value: unknown): Submission | null {
     if (typeof w.situation !== "string" || typeof w.homeLocation !== "string" || typeof w.activeSearch !== "string" || typeof w.openToWork !== "string") return null;
     if (w.workLocation !== undefined && typeof w.workLocation !== "string") return null;
     if (w.situation === "not-working" && w.workLocation !== undefined) return null;
+    const situationOptions = value.formVersion === LEGACY_FORM_VERSION ? legacyWorkerSituationOptions : workerSituationOptions;
+    if (!situationOptions.some((option) => option.value === w.situation)) return null;
+    if (!w.homeLocation.trim() || w.homeLocation.trim().length > 120 || !yesNoOptions.some((option) => option.value === w.activeSearch) || !opennessOptions.some((option) => option.value === w.openToWork)) return null;
     Object.assign(answers, { workerSituation: w.situation, workerHomeLocation: w.homeLocation, workerWorkLocation: w.workLocation ?? "", workerActiveSearch: w.activeSearch, workerOpenToWork: w.openToWork });
   } else if (value.worker !== undefined) return null;
   const contact = value.contact;
@@ -168,5 +211,14 @@ export function parseSubmission(value: unknown): Submission | null {
   answers.name = contact.name;
   answers.email = contact.email;
   answers.phone = contact.phone ?? "";
+  // An already-open older form can still submit; never infer new answers from old ones.
+  if (value.formVersion === LEGACY_FORM_VERSION) {
+    if (Object.keys(validateStep("contact", answers)).length) return null;
+    return {
+      formVersion: LEGACY_FORM_VERSION, participantType: value.participantType, consent: true,
+      ...(legacyEmployer ? { employer: legacyEmployer } : {}),
+      ...(hasWorker ? { worker: legacyWorkerFromAnswers(answers) } : {}), contact: contactFromAnswers(answers),
+    };
+  }
   return firstInvalidStep(answers) ? null : createSubmission(answers);
 }

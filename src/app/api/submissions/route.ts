@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
-import { parseSubmission, type Submission } from "@/lib/screener/steps";
+import { parseSubmission, type StoredSubmission } from "@/lib/screener/steps";
 import { SHEET_SUFFIX, sheetHeaderUpdate, toSheetRow } from "@/lib/screener/submission-storage";
 
 export const runtime = "nodejs";
@@ -18,7 +18,7 @@ function getConfiguration() {
   return { spreadsheetId, clientEmail, privateKey, sheetName: `${process.env.GOOGLE_SHEETS_SHEET_NAME || "Submissions"} ${SHEET_SUFFIX}` };
 }
 
-async function saveSubmission(payload: Submission, configuration: NonNullable<ReturnType<typeof getConfiguration>>) {
+async function saveSubmission(payload: StoredSubmission, configuration: NonNullable<ReturnType<typeof getConfiguration>>) {
   const auth = new google.auth.GoogleAuth({
     credentials: { client_email: configuration.clientEmail, private_key: configuration.privateKey },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
@@ -36,7 +36,7 @@ async function saveSubmission(payload: Submission, configuration: NonNullable<Re
       if (!latest.data.sheets?.some((sheet) => sheet.properties?.title === configuration.sheetName)) throw error;
     }
   }
-  const headerResponse = await sheets.spreadsheets.values.get({ spreadsheetId: configuration.spreadsheetId, range: `${sheetRange}!A1:Q1` });
+  const headerResponse = await sheets.spreadsheets.values.get({ spreadsheetId: configuration.spreadsheetId, range: `${sheetRange}!A1:S1` });
   const existingHeader = headerResponse.data.values?.[0] ?? [];
   const headerUpdate = sheetHeaderUpdate(existingHeader);
   if (headerUpdate) await sheets.spreadsheets.values.update({ spreadsheetId: configuration.spreadsheetId,
@@ -44,7 +44,7 @@ async function saveSubmission(payload: Submission, configuration: NonNullable<Re
   });
   const receivedAt = new Date().toISOString();
   await sheets.spreadsheets.values.append({ spreadsheetId: configuration.spreadsheetId,
-    range: `${sheetRange}!A:Q`, valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
+    range: `${sheetRange}!A:S`, valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
     requestBody: { values: [toSheetRow(payload, receivedAt)] },
   });
 }

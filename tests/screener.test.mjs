@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FORM_VERSION, initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, createReviewAnswers, parseSubmission, hasWorkplace } from "../src/lib/screener/steps.ts";
+import { FORM_VERSION, LEGACY_FORM_VERSION, initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, createReviewAnswers, parseSubmission, hasWorkplace } from "../src/lib/screener/steps.ts";
 import { sheetHeaders, sheetHeaderUpdate, toSheetRow, SHEET_SUFFIX } from "../src/lib/screener/submission-storage.ts";
 
 function valid(participantType = "both") {
-  return { ...initialAnswers, participantType, employerLocation: " Venlo ", employerType: " Bakkerij ", employerSize: "2–9", staffingNeed: "multiple",
+  return { ...initialAnswers, participantType, employerLocation: " Venlo ", employerType: " Bakkerij ", employerSize: "2–9", recruitmentPattern: "yes", recruitmentInvolvement: "yes",
     workerSituation: "employed", workerHomeLocation: " Venray ", workerWorkLocation: " Venlo ", workerActiveSearch: "yes", workerOpenToWork: "no",
     name: " Test ", email: " test@example.com " };
 }
@@ -14,9 +14,16 @@ test("four screens per perspective, five for both; no separate intro or contact 
   assert.deepEqual(getSteps(valid()), ["intro", "employer", "worker", "contact", "complete"]);
 });
 test("all employer fields are grouped and validated with no automatic exclusion", () => {
-  assert.deepEqual(Object.keys(validateStep("employer", initialAnswers)), ["employerLocation", "employerType", "employerSize", "staffingNeed"]);
-  for (const size of ["0–1", "2–9", "10–19", "20 of meer", "Weet ik niet"]) {
-    for (const need of ["multiple", "once", "no", "unknown"]) assert.equal(firstInvalidStep({ ...valid("employer"), employerSize: size, staffingNeed: need }), undefined);
+  assert.deepEqual(Object.keys(validateStep("employer", initialAnswers)), ["employerLocation", "employerType", "employerSize", "recruitmentPattern", "recruitmentInvolvement"]);
+  for (const size of ["0–1", "2–9", "10–19", "20–49", "50–249", "250 of meer", "Weet ik niet"]) {
+    for (const pattern of ["yes", "no", "unknown"]) {
+      for (const involvement of ["yes", "no"]) {
+        const answers = { ...valid("employer"), employerSize: size, recruitmentPattern: pattern, recruitmentInvolvement: involvement };
+        assert.equal(firstInvalidStep(answers), undefined);
+        const payload = createSubmission(answers);
+        assert.deepEqual(parseSubmission(payload), payload);
+      }
+    }
   }
 });
 test("home is required, workplace optional and excluded when not working", () => {
@@ -26,6 +33,7 @@ test("home is required, workplace optional and excluded when not working", () =>
   assert.equal("workLocation" in createSubmission(answers).worker, false);
   assert.ok(validateStep("worker", { ...answers, workerHomeLocation: " " }).workerHomeLocation);
   assert.equal(firstInvalidStep({ ...valid("personal"), workerWorkLocation: "" }), undefined);
+  assert.ok(validateStep("worker", { ...valid("personal"), workerSituation: "both" }).workerSituation);
 });
 test("recent searching and current openness remain independent and always required", () => {
   for (const searched of ["yes", "no"]) {
@@ -106,15 +114,65 @@ test("invalid phone input is rejected by both client validation and the server b
   }
 });
 
-test("sheet header migration only appends the phone column and is safe to retry", () => {
+test("sheet header migration appends new fields without changing historical columns and is safe to retry", () => {
   const legacyHeader = sheetHeaders.slice(0, 16);
-  assert.deepEqual(sheetHeaderUpdate(legacyHeader), { range: "Q1", values: [["Telefoonnummer"]] });
-  assert.equal(sheetHeaderUpdate([...legacyHeader, "Telefoonnummer"]), null);
-  assert.deepEqual(sheetHeaderUpdate([]), { range: "A1:Q1", values: [sheetHeaders] });
+  assert.deepEqual(sheetHeaderUpdate(legacyHeader), { range: "Q1:S1", values: [["Telefoonnummer", "Patroon personeelsbehoefte/werving", "Zelf betrokken bij werving/selectie"]] });
+  assert.deepEqual(sheetHeaderUpdate([...legacyHeader, "Telefoonnummer"]), { range: "R1:S1", values: [["Patroon personeelsbehoefte/werving", "Zelf betrokken bij werving/selectie"]] });
+  assert.equal(sheetHeaderUpdate(sheetHeaders), null);
+  assert.deepEqual(sheetHeaderUpdate([]), { range: "A1:S1", values: [sheetHeaders] });
   for (const unknown of [["timestamp"], legacyHeader.slice(0, 15), [...legacyHeader, "Not a phone column"]]) {
     assert.throws(() => sheetHeaderUpdate(unknown), /Onverwachte kolomkoppen/);
   }
   const withoutPhone = createSubmission(valid());
   const withPhone = createSubmission({ ...valid(), phone: "0612345678" });
   assert.deepEqual(toSheetRow(withPhone, "timestamp").slice(0, 16), toSheetRow(withoutPhone, "timestamp").slice(0, 16));
+});
+
+test("new employer questions are required only on employer routes and reject old question answers", () => {
+  for (const participantType of ["employer", "both"]) {
+    for (const field of ["recruitmentPattern", "recruitmentInvolvement"]) {
+      assert.ok(validateStep("employer", { ...valid(participantType), [field]: "" })[field]);
+      const payload = createSubmission(valid(participantType));
+      delete payload.employer[field];
+      assert.equal(parseSubmission(payload), null);
+    }
+  }
+  const personal = createSubmission({ ...valid("personal"), recruitmentPattern: "", recruitmentInvolvement: "" });
+  assert.equal(personal.employer, undefined);
+  assert.deepEqual(toSheetRow(personal, "timestamp").slice(17), ["", ""]);
+  const payload = createSubmission(valid());
+  assert.equal(parseSubmission({ ...payload, employer: { ...payload.employer, recruitmentPattern: "multiple" } }), null);
+  assert.equal(parseSubmission({ ...payload, employer: { ...payload.employer, recruitmentInvolvement: "unknown" } }), null);
+  assert.equal(parseSubmission({ ...payload, employer: { ...payload.employer, staffingNeed: "multiple" } }), null);
+});
+
+test("new employer answers get separate columns instead of being recorded as the old two-year question", () => {
+  const row = toSheetRow(createSubmission({ ...valid(), employerSize: "250 of meer", recruitmentPattern: "yes" }), "timestamp");
+  assert.equal(row[1], FORM_VERSION);
+  assert.equal(row[6], "250 of meer");
+  assert.equal(row[7], "");
+  assert.equal(row[17], "Ja");
+  assert.equal(row[18], "Ja");
+});
+
+test("already-open legacy forms stay valid and retain their original question meaning", () => {
+  for (const participantType of ["employer", "personal", "both"]) {
+    const current = createSubmission(valid(participantType));
+    const legacy = { ...current, formVersion: LEGACY_FORM_VERSION };
+    if (current.employer) legacy.employer = { location: "Venlo", organizationType: "Bakkerij", size: "20 of meer", staffingNeed: "multiple" };
+    if (current.worker) legacy.worker = { ...current.worker, situation: "both" };
+    assert.deepEqual(parseSubmission(legacy), legacy);
+    const row = toSheetRow(parseSubmission(legacy), "timestamp");
+    assert.equal(row[1], LEGACY_FORM_VERSION);
+    assert.equal(row[7], participantType === "personal" ? "" : "Ja, meerdere keren");
+    assert.equal(row[8], participantType === "employer" ? "" : "Ik werk in loondienst én als zelfstandige");
+    assert.deepEqual(row.slice(17), ["", ""]);
+    if (legacy.employer) {
+      for (const overrides of [{ size: "250 of meer" }, { staffingNeed: "recurring" }, { location: "" }, { organizationType: "" }, { recruitmentInvolvement: "yes" }]) {
+        assert.equal(parseSubmission({ ...legacy, employer: { ...legacy.employer, ...overrides } }), null);
+      }
+      assert.equal(parseSubmission({ ...legacy, formVersion: FORM_VERSION }), null);
+    }
+    assert.equal(parseSubmission({ ...legacy, contact: { name: "", email: "" } }), null);
+  }
 });

@@ -13,7 +13,7 @@ import type { Fortune } from "@/lib/screener/fortunes";
 import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
 import {
   initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, isParticipantType, hasWorkplace,
-  participantOptions, employerSizeOptions, staffingNeedOptions, workerSituationOptions, yesNoOptions, opennessOptions,
+  participantOptions, employerSizeOptions, recruitmentPatternOptions, workerSituationOptions, yesNoOptions, opennessOptions,
   type Answers, type FieldErrors, type StepId, type Submission, type ReviewAnswers,
 } from "@/lib/screener/steps";
 
@@ -22,7 +22,7 @@ const titles: Record<StepId, string> = {
   contact: "Mag ik contact met je opnemen?", complete: "Bedankt",
 };
 const descriptions: Partial<Record<StepId, string>> = {
-  intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe arbeidsrelaties tussen kleinere werkgevers en mensen in Noord-Limburg ontstaan, en wat ervoor zorgt dat die wel of niet goed werken.",
+  intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe werkgevers en mensen in Noord-Limburg elkaar vinden en wat goed werkt.",
   contact: "Ik neem contact met je op als jouw situatie aansluit op de gesprekken die ik wil voeren.",
 };
 type Completion = { fortune: Fortune; screenCount: number; submission: Submission };
@@ -67,7 +67,8 @@ function SubmittedAnswers({ review, contact }: { review: ReviewAnswers; contact?
       { label: "Vestigingsplaats", value: employer.location },
       { label: "Type bedrijf of organisatie", value: employer.organizationType },
       { label: "Aantal mensen op deze vestiging", value: employer.size },
-      { label: "Personeelsbehoefte in de afgelopen twee jaar", value: labelFor(staffingNeedOptions, employer.staffingNeed) },
+      { label: "Regelmatig personeel nodig of doorlopend werven", value: labelFor(recruitmentPatternOptions, employer.recruitmentPattern) },
+      { label: "Zelf betrokken bij werving of selectie", value: labelFor(yesNoOptions, employer.recruitmentInvolvement) },
     ]} />}
     {worker && <ReviewSection title="Over jouw werk" rows={[
       { label: "Huidige werksituatie", value: labelFor(workerSituationOptions, worker.situation) },
@@ -194,7 +195,7 @@ export function Screener() {
     url.searchParams.set("via", "share");
     if (navigator.share) {
       try {
-        await navigator.share({ text: "Misschien iets voor jou: Raoul onderzoekt hoe mensen werk vinden, waarom ze blijven of overstappen en hoe kleinere werkgevers personeel aannemen. Aanmelden voor zijn afstudeeronderzoek bij Crispy duurt 1–2 minuten.", url: url.toString() });
+        await navigator.share({ text: "Misschien iets voor jou: Raoul onderzoekt hoe mensen in Noord-Limburg werk vinden, waarom ze blijven of overstappen en hoe organisaties personeel aannemen. Ook zoekt hij mensen die zelf betrokken zijn bij werving of selectie bij kleine of grote organisaties die regelmatig personeel nodig hebben of doorlopend werven. Aanmelden voor zijn afstudeeronderzoek bij Crispy duurt 1–2 minuten.", url: url.toString() });
         showShareStatus("shared"); return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -218,21 +219,21 @@ export function Screener() {
           <form onSubmit={next} noValidate aria-labelledby="step-title" aria-busy={busy}>
             <fieldset disabled={busy} className="min-w-0">
               {stepId === "intro" && <>
-                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Daarover ga ik graag met je in gesprek. Met een paar korte vragen kijk ik wie ik kan uitnodigen. Aanmelden is vrijblijvend.</p>
+                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Met een paar korte vragen kijk ik wie ik kan uitnodigen. Aanmelden is vrijblijvend.</p>
                 <p className="mb-8 text-sm leading-[1.55] font-medium">Als bedankje krijg je aan het einde een digitaal gelukskoekje.</p>
                 <ChoiceField {...fieldProps("participantType")} label="Waarover wil je vertellen?" options={participantOptions} />
-                {answers.participantType === "both" && <p className="mt-3 text-sm leading-[1.55] text-muted-foreground">Je krijgt een kort onderdeel over je organisatie en een over jouw eigen werk.</p>}
               </>}
               {stepId === "employer" && <div className="space-y-9">
                 <section aria-labelledby="organization-block" className="space-y-5">
                   <h2 id="organization-block" className="text-xl font-semibold sm:text-2xl">De organisatie</h2>
-                  <TextField {...fieldProps("employerLocation")} label="In welke plaats is deze vestiging gevestigd?" placeholder="Plaatsnaam" />
-                  <TextField {...fieldProps("employerType")} label="Wat voor bedrijf of organisatie is het?" hint="Bijvoorbeeld een bakkerij, installatiebedrijf of zorgpraktijk." maxLength={200} />
+                  <TextField {...fieldProps("employerLocation")} label="In welke plaats is deze vestiging?" placeholder="Plaatsnaam" />
+                  <TextField {...fieldProps("employerType")} label="Wat voor organisatie is het?" hint="Bijvoorbeeld een bakkerij, installatiebedrijf of zorgpraktijk." maxLength={200} />
                   <SelectField {...fieldProps("employerSize")} label="Hoeveel mensen werken op deze vestiging?" options={employerSizeOptions} />
                 </section>
                 <section aria-labelledby="staffing-block" className="space-y-5 border-t border-border pt-7">
-                  <h2 id="staffing-block" className="text-xl font-semibold sm:text-2xl">Personeelsbehoefte</h2>
-                  <ChoiceField {...fieldProps("staffingNeed")} label="Heeft deze vestiging de afgelopen twee jaar extra of vervangend personeel nodig gehad?" hint="Het maakt niet uit of er uiteindelijk iemand is aangenomen." options={staffingNeedOptions} />
+                  <h2 id="staffing-block" className="text-xl font-semibold sm:text-2xl">Werving</h2>
+                  <ChoiceField {...fieldProps("recruitmentPattern")} label="Heeft deze vestiging regelmatig personeel nodig of werft ze doorlopend?" hint="Seizoensdrukte en vervanging tellen ook mee." options={recruitmentPatternOptions} />
+                  <ChoiceField {...fieldProps("recruitmentInvolvement")} label="Ben je zelf betrokken bij werving, selectie of het aannemen van medewerkers?" hint="Bijvoorbeeld kandidaten zoeken, gesprekken voeren of meebeslissen." options={yesNoOptions} />
                 </section>
               </div>}
               {stepId === "worker" && <div className="space-y-9">
@@ -240,19 +241,18 @@ export function Screener() {
                   <h2 id="work-block" className="text-xl font-semibold sm:text-2xl">Je werksituatie en locatie</h2>
                   <ChoiceField {...fieldProps("workerSituation")} label="Wat is je huidige werksituatie?" hint="Ook een bijbaan telt als werk." options={workerSituationOptions} />
                   <TextField {...fieldProps("workerHomeLocation")} label="Waar woon je?" placeholder="Plaatsnaam" />
-                  {hasWorkplace(answers) && <TextField {...fieldProps("workerWorkLocation")} label="Waar werk je?" placeholder="Plaatsnaam" optional hint="Geen vaste werkplaats? Dan mag je dit leeg laten." />}
+                  {hasWorkplace(answers) && <TextField {...fieldProps("workerWorkLocation")} label="Waar werk je?" placeholder="Plaatsnaam" optional hint="Geen vaste werkplaats? Laat dit veld dan leeg." />}
                 </section>
                 <section aria-labelledby="search-block" className="space-y-6 border-t border-border pt-7">
                   <h2 id="search-block" className="text-xl font-semibold sm:text-2xl">Zoeken en openstaan</h2>
-                  <ChoiceField {...fieldProps("workerActiveSearch")} label="Heb je de afgelopen drie maanden gericht naar een baan gezocht?" hint="Bijvoorbeeld vacatures gezocht, contact opgenomen over een baan of gesolliciteerd." options={yesNoOptions} />
+                  <ChoiceField {...fieldProps("workerActiveSearch")} label="Heb je de afgelopen drie maanden gericht naar een baan gezocht?" hint="Bijvoorbeeld vacatures bekeken, contact opgenomen of gesolliciteerd." options={yesNoOptions} />
                   <ChoiceField {...fieldProps("workerOpenToWork")} label="Sta je op dit moment open voor een nieuwe baan?" options={opennessOptions} />
                 </section>
               </div>}
               {stepId === "contact" && <div className="space-y-5">
                 <TextField {...fieldProps("name")} label="Naam" hint="Een voornaam is voldoende." autoComplete="given-name" />
                 <TextField {...fieldProps("email")} label="E-mailadres" type="email" autoComplete="email" maxLength={254} placeholder="naam@voorbeeld.nl" accessory={<PrivacyInfo />} />
-                <TextField {...fieldProps("phone")} label="Telefoonnummer" type="tel" autoComplete="tel" maxLength={40} optional placeholder="06 1234 5678" hint="Vul je nummer in als ik je ook mag bellen." />
-                <p className="text-sm leading-[1.55] text-muted-foreground">Je antwoorden worden gebruikt om interviewdeelnemers te selecteren. Je contactgegevens worden gebruikt om contact met je op te nemen.</p>
+                <TextField {...fieldProps("phone")} label="Telefoonnummer" type="tel" autoComplete="tel" maxLength={40} optional placeholder="06 1234 5678" hint="Vul je nummer in als ik je mag bellen." />
               </div>}
               {Object.values(errors).some(Boolean) && <p role="alert" className="sr-only">Controleer de gemarkeerde velden.</p>}
               {sendError && <p role="alert" className="mt-5 text-sm text-destructive">{sendError}</p>}
@@ -266,7 +266,7 @@ export function Screener() {
         {stepId === "complete" && completion && <>
           {!visitedAnswers && <CompletionConfetti />}
           <StepFrame key="complete" title={viewingAnswers ? "Jouw antwoorden" : "Heel erg bedankt!"}
-            description={viewingAnswers ? "Dit zijn de antwoorden die je hebt ingestuurd." : <>Als jouw situatie aansluit op de gesprekken die ik wil voeren, neem ik contact met je op om iets af te spreken. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</>}>
+            description={viewingAnswers ? undefined : <>Als jouw situatie aansluit op de gesprekken die ik wil voeren, neem ik contact met je op om iets af te spreken. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</>}>
             <div hidden={viewingAnswers}>
               <FortuneCookieAnimation fortune={completion.fortune} />
               <div className="flex flex-wrap items-center justify-between gap-3">

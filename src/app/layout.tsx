@@ -8,7 +8,7 @@ import "./globals.css";
 const siteUrl = "https://werkonderzoek-screener.vercel.app";
 const title = "Denk mee over werk en personeel";
 const description =
-  "Raoul onderzoekt hoe mensen werk vinden, waarom ze blijven of overstappen en hoe kleinere werkgevers personeel aannemen. Help mee aan zijn afstudeeronderzoek bij Crispy; aanmelden duurt 1–2 minuten.";
+  "Raoul onderzoekt werk en personeelswerving in Noord-Limburg. Voor mensen met werkervaringen en betrokkenen bij terugkerende werving in kleine én grote organisaties. Aanmelden duurt 1–2 minuten.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
