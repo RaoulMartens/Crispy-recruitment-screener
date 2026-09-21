@@ -19,11 +19,10 @@ Open http://localhost:3000. Run `npm run build` followed by `npm start` for a pr
 - Employers answer location, organization type, establishment size and staffing need together on one screen.
 - Personal participants answer situation, required home town, optional workplace, recent search and current openness together. Workplace is hidden and omitted from submission when not working. Search and openness are independent.
 - Both visits the employer screen first, then personal, without a transition screen. No answer automatically excludes a participant.
-- The contact screen has an unchecked `Ik wil geen uitnodiging ontvangen` option. When unchecked, name and email are required; the explicit `Versturen` action gives permission for research email contact. No phone or contact-channel question.
-- Checking the opt-out box changes the action to `Afronden` and opens the reward without sending or storing any form data. Answers remain in memory only for the read-only review during the current page visit.
+- The contact screen requires name and email and offers an optional phone number for participants who also want to be called. The explicit `Versturen` action submits the registration. There is no opt-out checkbox or bypass to completion; completion requires a successful save.
 - Confirmed privacy details are expandable on contact: Crispy/HAN access, six-month retention, and raoul@crispy.nl for questions/removal.
 - The fortune cookie appears on every thank-you screen. Fortunes are selected from the participant's audience pool and stay fixed in the browser session.
-- Participants can open a read-only summary during the current page visit and return to the thank-you screen without restarting the cookie animation. The opt-out summary omits contact details and is never submitted.
+- Participants can open a read-only summary, including their phone number if provided, during the current page visit and return to the thank-you screen without restarting the cookie animation.
 
 Navigation and validation live in `src/lib/screener/steps.ts`. Form state and rendering live in `src/components/screener/screener.tsx`. Fortune messages are editable in `src/lib/screener/fortunes.ts`.
 
@@ -31,7 +30,9 @@ Navigation and validation live in `src/lib/screener/steps.ts`. Form state and re
 
 The server-only route `src/app/api/submissions/route.ts` validates the submission and appends it to Google Sheets. Configure `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` and, optionally, `GOOGLE_SHEETS_SHEET_NAME`. Give the service account editor access and enable the Google Sheets API. Do not expose credentials through `NEXT_PUBLIC_*`.
 
-The compact questionnaire uses 16 columns and writes to a separate tab named `<GOOGLE_SHEETS_SHEET_NAME> v4 compact` (or `Submissions v4 compact` when absent). The tab and header row are created automatically if missing; an incompatible existing header is rejected. Earlier tabs remain untouched. Each successful submission records form version `v4-minimal-2` and a server-generated consent timestamp. Only the active route's answers are submitted. Text is written as raw values to avoid spreadsheet formula interpretation.
+The compact questionnaire uses 17 columns and writes to a separate tab named `<GOOGLE_SHEETS_SHEET_NAME> v4 compact` (or `Submissions v4 compact` when absent). The tab and header row are created automatically if missing. An exact match with the previous 16-column header is upgraded by adding `Telefoonnummer` in Q1 on the next submission; existing responses and columns are not changed. Other incompatible headers are rejected. Earlier tabs remain untouched. Each successful submission records form version `v4-minimal-2` and a server-generated consent timestamp. The optional phone field is additive: older submissions without it remain valid. Only the active route's answers are submitted. Text is written as raw values to preserve phone formatting/leading zeros and avoid spreadsheet formula interpretation.
+
+Rolling back the code leaves the extra phone column and existing phone data intact; the previous server reads and writes only columns A:P.
 
 The server suppresses identical retries for one minute per running instance. A failed Sheets write returns an error and allows a retry.
 

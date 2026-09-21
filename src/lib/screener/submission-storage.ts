@@ -6,8 +6,18 @@ export const sheetHeaders = [
   "Ingezonden op", "Formulierversie", "Toestemming op", "Perspectief",
   "Vestigingsplaats", "Type organisatie", "Omvang vestiging", "Personeelsbehoefte (2 jaar)",
   "Werksituatie", "Woonplaats", "Werkplaats", "Gericht gezocht (3 maanden)", "Open voor nieuwe baan",
-  "Naam", "E-mailadres", "Toestemming voor e-mail",
+  "Naam", "E-mailadres", "Toestemming voor e-mail", "Telefoonnummer",
 ];
+
+export function sheetHeaderUpdate(existing: unknown[]): { range: string; values: string[][] } | null {
+  if (!existing.length) return { range: "A1:Q1", values: [sheetHeaders] };
+  if (JSON.stringify(existing) === JSON.stringify(sheetHeaders)) return null;
+  // Append only: existing columns and historical responses retain their positions.
+  if (JSON.stringify(existing) === JSON.stringify(sheetHeaders.slice(0, 16))) {
+    return { range: "Q1", values: [["Telefoonnummer"]] };
+  }
+  throw new Error("Onverwachte kolomkoppen; inzending niet opgeslagen.");
+}
 
 export function toSheetRow(submission: Submission, receivedAt: string): string[] {
   const { employer, worker, contact } = submission;
@@ -19,6 +29,6 @@ export function toSheetRow(submission: Submission, receivedAt: string): string[]
     staffingNeedOptions.find((option) => option.value === employer?.staffingNeed)?.label ?? "",
     workerSituationOptions.find((option) => option.value === worker?.situation)?.label ?? "",
     worker?.homeLocation ?? "", worker?.workLocation ?? "", choiceLabel(worker?.activeSearch), choiceLabel(worker?.openToWork),
-    contact.name, contact.email, "Ja",
+    contact.name, contact.email, "Ja", contact.phone ?? "",
   ];
 }

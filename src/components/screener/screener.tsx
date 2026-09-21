@@ -12,22 +12,20 @@ import { FortuneCookieAnimation } from "@/components/screener/fortune-cookie-ani
 import type { Fortune } from "@/lib/screener/fortunes";
 import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
 import {
-  initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, createReviewAnswers, isParticipantType, hasWorkplace,
+  initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, isParticipantType, hasWorkplace,
   participantOptions, employerSizeOptions, staffingNeedOptions, workerSituationOptions, yesNoOptions, opennessOptions,
   type Answers, type FieldErrors, type StepId, type Submission, type ReviewAnswers,
 } from "@/lib/screener/steps";
 
 const titles: Record<StepId, string> = {
   intro: "Denk mee over werk en personeel", employer: "Over jullie organisatie", worker: "Over jouw werk",
-  contact: "Mag ik je mailen?", complete: "Bedankt",
+  contact: "Mag ik contact met je opnemen?", complete: "Bedankt",
 };
 const descriptions: Partial<Record<StepId, string>> = {
   intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe arbeidsrelaties tussen kleinere werkgevers en mensen in Noord-Limburg ontstaan, en wat ervoor zorgt dat die wel of niet goed werken.",
-  contact: "Ik mail je als jouw situatie aansluit op de gesprekken die ik wil voeren. Het gesprek duurt ongeveer 30–45 minuten. Je beslist daarna of je meedoet.",
+  contact: "Ik neem contact met je op als jouw situatie aansluit op de gesprekken die ik wil voeren.",
 };
-type Completion =
-  | { registered: true; fortune: Fortune; screenCount: number; submission: Submission }
-  | { registered: false; fortune: Fortune; screenCount: number; review: ReviewAnswers };
+type Completion = { fortune: Fortune; screenCount: number; submission: Submission };
 type ShareStatus = "idle" | "shared" | "copied" | "error";
 
 function ShareResearchButton({ status, onShare, variant = "default", className }: {
@@ -78,7 +76,10 @@ function SubmittedAnswers({ review, contact }: { review: ReviewAnswers; contact?
       { label: "Afgelopen drie maanden gericht gezocht", value: labelFor(yesNoOptions, worker.activeSearch) },
       { label: "Nu open voor een nieuwe baan", value: labelFor(opennessOptions, worker.openToWork) },
     ]} />}
-    {contact && <ReviewSection title="Contactgegevens" rows={[{ label: "Naam", value: contact.name }, { label: "E-mailadres", value: contact.email }]} />}
+    {contact && <ReviewSection title="Contactgegevens" rows={[
+      { label: "Naam", value: contact.name }, { label: "E-mailadres", value: contact.email },
+      ...(contact.phone ? [{ label: "Telefoonnummer", value: contact.phone }] : []),
+    ]} />}
   </div>;
 }
 
@@ -106,7 +107,6 @@ export function Screener() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [sendError, setSendError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [noInvitation, setNoInvitation] = useState(false);
   const [completion, setCompletion] = useState<Completion | null>(null);
   const [viewingAnswers, setViewingAnswers] = useState(false);
   const [visitedAnswers, setVisitedAnswers] = useState(false);
@@ -148,24 +148,17 @@ export function Screener() {
     setStepId(id);
     setErrors(nextErrors);
   }
-  function finish(registered: false): void;
-  function finish(registered: true, submission: Submission): void;
-  function finish(registered: boolean, submission?: Submission) {
-    if (!isParticipantType(answers.participantType)) return;
-    // Opting out keeps answers only in this page for the review; nothing is sent or persisted.
-    const fortune = selectFortuneForParticipant(answers.participantType, registered ? {} : { storage: null });
-    if (registered && submission) setCompletion({ registered: true, fortune, screenCount: steps.length, submission });
-    else setCompletion({ registered: false, fortune, screenCount: steps.length, review: createReviewAnswers(answers) });
+  function finish(submission: Submission) {
+    const fortune = selectFortuneForParticipant(submission.participantType);
+    setCompletion({ fortune, screenCount: steps.length, submission });
     setViewingAnswers(false);
     setVisitedAnswers(false);
     setAnswers({ ...initialAnswers });
-    setNoInvitation(false);
     goTo("complete");
   }
   async function next(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sendingRef.current) return;
-    if (stepId === "contact" && noInvitation) { finish(false); return; }
     const nextErrors = validateStep(stepId, answers);
     if (Object.keys(nextErrors).length) { showErrors(stepId, nextErrors); return; }
     if (stepId !== "contact") { goTo(steps[stepIndex + 1]); return; }
@@ -188,7 +181,7 @@ export function Screener() {
       sendingRef.current = false;
       setBusy(false);
     }
-    if (saved) finish(true, submission);
+    if (saved) finish(submission);
     else setSendError("Je aanmelding is nog niet verstuurd. Probeer het opnieuw.");
   }
   function showShareStatus(status: Exclude<typeof shareStatus, "idle">) {
@@ -225,7 +218,7 @@ export function Screener() {
           <form onSubmit={next} noValidate aria-labelledby="step-title" aria-busy={busy}>
             <fieldset disabled={busy} className="min-w-0">
               {stepId === "intro" && <>
-                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Daarover ga ik graag ongeveer 30–45 minuten met je in gesprek. Met een paar korte vragen kijk ik wie ik kan uitnodigen. Aanmelden is vrijblijvend.</p>
+                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Daarover ga ik graag met je in gesprek. Met een paar korte vragen kijk ik wie ik kan uitnodigen. Aanmelden is vrijblijvend.</p>
                 <p className="mb-8 text-sm leading-[1.55] font-medium">Als bedankje krijg je aan het einde een digitaal gelukskoekje.</p>
                 <ChoiceField {...fieldProps("participantType")} label="Waarover wil je vertellen?" options={participantOptions} />
                 {answers.participantType === "both" && <p className="mt-3 text-sm leading-[1.55] text-muted-foreground">Je krijgt een kort onderdeel over je organisatie en een over jouw eigen werk.</p>}
@@ -256,31 +249,24 @@ export function Screener() {
                 </section>
               </div>}
               {stepId === "contact" && <div className="space-y-5">
-                <TextField {...fieldProps("name")} label="Naam" hint="Een voornaam is voldoende." autoComplete="given-name" disabled={noInvitation} />
-                <TextField {...fieldProps("email")} label="E-mailadres" type="email" autoComplete="email" maxLength={254} placeholder="naam@voorbeeld.nl" accessory={<PrivacyInfo />} disabled={noInvitation} />
-                <p className="text-sm leading-[1.55] text-muted-foreground">Je antwoorden worden gebruikt om interviewdeelnemers te selecteren. Je naam en e-mailadres worden gebruikt om contact met je op te nemen.</p>
-                <div>
-                  <label className="flex min-h-10 cursor-pointer items-center gap-3 py-1 text-sm leading-[1.55]" htmlFor="noInvitation">
-                    <input id="noInvitation" name="noInvitation" type="checkbox" checked={noInvitation} onChange={(event) => { setNoInvitation(event.target.checked); setErrors({}); setSendError(null); }}
-                      className="size-5 shrink-0 accent-primary" />
-                    <span>Ik wil geen uitnodiging ontvangen.</span>
-                  </label>
-                  {noInvitation && <p className="mt-1 text-sm leading-[1.55] text-muted-foreground">Je gegevens worden niet verstuurd of opgeslagen. Je kunt nog steeds je gelukskoekje openen.</p>}
-                </div>
+                <TextField {...fieldProps("name")} label="Naam" hint="Een voornaam is voldoende." autoComplete="given-name" />
+                <TextField {...fieldProps("email")} label="E-mailadres" type="email" autoComplete="email" maxLength={254} placeholder="naam@voorbeeld.nl" accessory={<PrivacyInfo />} />
+                <TextField {...fieldProps("phone")} label="Telefoonnummer" type="tel" autoComplete="tel" maxLength={40} optional placeholder="06 1234 5678" hint="Vul je nummer in als ik je ook mag bellen." />
+                <p className="text-sm leading-[1.55] text-muted-foreground">Je antwoorden worden gebruikt om interviewdeelnemers te selecteren. Je contactgegevens worden gebruikt om contact met je op te nemen.</p>
               </div>}
               {Object.values(errors).some(Boolean) && <p role="alert" className="sr-only">Controleer de gemarkeerde velden.</p>}
               {sendError && <p role="alert" className="mt-5 text-sm text-destructive">{sendError}</p>}
               <div className={stepId === "intro" ? "mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" : "mt-8 flex items-center justify-between gap-4"}>
                 {stepId !== "intro" ? <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground"><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug</Button> : <ShareResearchButton status={shareStatus} onShare={shareResearch} variant="ghost" className="-ml-4 self-start text-muted-foreground" />}
-                <Button type="submit" size="lg" className={stepId === "intro" ? "next-button w-full sm:w-auto" : "next-button"} disabled={busy}>{busy ? "Versturen…" : stepId === "contact" ? noInvitation ? "Afronden" : "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
+                <Button type="submit" size="lg" className={stepId === "intro" ? "next-button w-full sm:w-auto" : "next-button"} disabled={busy}>{busy ? "Versturen…" : stepId === "contact" ? "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
               </div>
             </fieldset>
           </form>
         </StepFrame>}
         {stepId === "complete" && completion && <>
-          {completion.registered && !visitedAnswers && <CompletionConfetti />}
-          <StepFrame key="complete" title={viewingAnswers ? "Jouw antwoorden" : completion.registered ? "Heel erg bedankt!" : "Bedankt voor je tijd"}
-            description={viewingAnswers ? completion.registered ? "Dit zijn de antwoorden die je hebt ingestuurd." : "Dit zijn de antwoorden die je hebt ingevuld. Ze zijn niet verstuurd of opgeslagen." : completion.registered ? <>Als jouw situatie aansluit op de gesprekken die ik wil voeren, mail ik je om iets af te spreken. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</> : <>Je bent niet aangemeld voor een interview en ontvangt geen uitnodiging. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</>}>
+          {!visitedAnswers && <CompletionConfetti />}
+          <StepFrame key="complete" title={viewingAnswers ? "Jouw antwoorden" : "Heel erg bedankt!"}
+            description={viewingAnswers ? "Dit zijn de antwoorden die je hebt ingestuurd." : <>Als jouw situatie aansluit op de gesprekken die ik wil voeren, neem ik contact met je op om iets af te spreken. <strong className="font-semibold">Tik of klik op het koekje</strong> om je boodschap te ontdekken.</>}>
             <div hidden={viewingAnswers}>
               <FortuneCookieAnimation fortune={completion.fortune} />
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -289,7 +275,7 @@ export function Screener() {
               </div>
             </div>
             <div hidden={!viewingAnswers}>
-              <SubmittedAnswers review={completion.registered ? completion.submission : completion.review} contact={completion.registered ? completion.submission.contact : undefined} />
+              <SubmittedAnswers review={completion.submission} contact={completion.submission.contact} />
               <Button type="button" variant="ghost" size="lg" className="back-button -ml-4 mt-8 text-muted-foreground" onClick={() => { setViewingAnswers(false); window.scrollTo({ top: 0, behavior: "instant" }); }}><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug naar bedankje</Button>
             </div>
           </StepFrame>

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { parseSubmission, type Submission } from "@/lib/screener/steps";
-import { SHEET_SUFFIX, sheetHeaders, toSheetRow } from "@/lib/screener/submission-storage";
+import { SHEET_SUFFIX, sheetHeaderUpdate, toSheetRow } from "@/lib/screener/submission-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,15 +36,15 @@ async function saveSubmission(payload: Submission, configuration: NonNullable<Re
       if (!latest.data.sheets?.some((sheet) => sheet.properties?.title === configuration.sheetName)) throw error;
     }
   }
-  const headerResponse = await sheets.spreadsheets.values.get({ spreadsheetId: configuration.spreadsheetId, range: `${sheetRange}!A1:P1` });
+  const headerResponse = await sheets.spreadsheets.values.get({ spreadsheetId: configuration.spreadsheetId, range: `${sheetRange}!A1:Q1` });
   const existingHeader = headerResponse.data.values?.[0] ?? [];
-  if (existingHeader.length && JSON.stringify(existingHeader) !== JSON.stringify(sheetHeaders)) throw new Error("Onverwachte kolomkoppen; inzending niet opgeslagen.");
-  if (!existingHeader.length) await sheets.spreadsheets.values.update({ spreadsheetId: configuration.spreadsheetId,
-    range: `${sheetRange}!A1:P1`, valueInputOption: "RAW", requestBody: { values: [sheetHeaders] },
+  const headerUpdate = sheetHeaderUpdate(existingHeader);
+  if (headerUpdate) await sheets.spreadsheets.values.update({ spreadsheetId: configuration.spreadsheetId,
+    range: `${sheetRange}!${headerUpdate.range}`, valueInputOption: "RAW", requestBody: { values: headerUpdate.values },
   });
   const receivedAt = new Date().toISOString();
   await sheets.spreadsheets.values.append({ spreadsheetId: configuration.spreadsheetId,
-    range: `${sheetRange}!A:P`, valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
+    range: `${sheetRange}!A:Q`, valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
     requestBody: { values: [toSheetRow(payload, receivedAt)] },
   });
 }

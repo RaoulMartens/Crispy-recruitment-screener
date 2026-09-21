@@ -40,12 +40,13 @@ export type Answers = {
   workerOpenToWork: string;
   name: string;
   email: string;
+  phone: string;
 };
 export type FieldErrors = Partial<Record<keyof Answers, string>>;
 export const initialAnswers: Answers = {
   participantType: "", employerLocation: "", employerType: "", employerSize: "",
   staffingNeed: "", workerSituation: "", workerHomeLocation: "", workerWorkLocation: "",
-  workerActiveSearch: "", workerOpenToWork: "", name: "", email: "",
+  workerActiveSearch: "", workerOpenToWork: "", name: "", email: "", phone: "",
 };
 export function isParticipantType(value: string): value is ParticipantType {
   return participantOptions.some((option) => option.value === value);
@@ -86,6 +87,9 @@ export function validateStep(step: StepId, answers: Answers): FieldErrors {
   if (step === "contact") {
     text("name", 120, "Vul je naam in.");
     if (!/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(answers.email.trim()) || answers.email.trim().length > 254) errors.email = "Vul een geldig e-mailadres in.";
+    const phone = answers.phone.trim();
+    const digits = phone.replace(/\D/g, "");
+    if (phone && (phone.length > 40 || !/^\+?[\d\s().-]+$/.test(phone) || digits.length < 7 || digits.length > 15)) errors.phone = "Vul een geldig telefoonnummer in of laat dit veld leeg.";
   }
   return errors;
 }
@@ -98,7 +102,7 @@ export type Submission = {
   employer?: { location: string; organizationType: string; size: string; staffingNeed: string };
   worker?: { situation: string; homeLocation: string; workLocation?: string; activeSearch: string; openToWork: string };
   consent: true;
-  contact: { name: string; email: string };
+  contact: { name: string; email: string; phone?: string };
 };
 export type ReviewAnswers = Pick<Submission, "participantType" | "employer" | "worker">;
 export function createReviewAnswers(answers: Answers): ReviewAnswers {
@@ -128,7 +132,7 @@ export function createSubmission(answers: Answers): Submission {
   return {
     formVersion: FORM_VERSION, ...createReviewAnswers(answers),
     consent: true,
-    contact: { name: answers.name.trim(), email: answers.email.trim() },
+    contact: { name: answers.name.trim(), email: answers.email.trim(), ...(answers.phone.trim() ? { phone: answers.phone.trim() } : {}) },
   };
 }
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -159,8 +163,10 @@ export function parseSubmission(value: unknown): Submission | null {
     Object.assign(answers, { workerSituation: w.situation, workerHomeLocation: w.homeLocation, workerWorkLocation: w.workLocation ?? "", workerActiveSearch: w.activeSearch, workerOpenToWork: w.openToWork });
   } else if (value.worker !== undefined) return null;
   const contact = value.contact;
-  if (!isRecord(contact) || !hasOnlyKeys(contact, ["name", "email"]) || typeof contact.name !== "string" || typeof contact.email !== "string") return null;
+  if (!isRecord(contact) || !hasOnlyKeys(contact, ["name", "email", "phone"]) || typeof contact.name !== "string" || typeof contact.email !== "string") return null;
+  if (contact.phone !== undefined && typeof contact.phone !== "string") return null;
   answers.name = contact.name;
   answers.email = contact.email;
+  answers.phone = contact.phone ?? "";
   return firstInvalidStep(answers) ? null : createSubmission(answers);
 }

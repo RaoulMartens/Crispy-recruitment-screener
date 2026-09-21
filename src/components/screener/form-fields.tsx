@@ -19,7 +19,7 @@ export function FieldError({ id, error }: { id: string; error?: string }) {
   return error ? <p id={`${id}-error`} className="mt-2 text-sm text-destructive">{error}</p> : null;
 }
 export function TextField({ id, label, value, onChange, hint, error, optional = false, disabled = false, type = "text", maxLength = 120, placeholder, autoComplete = "off", accessory }: FieldProps & {
-  optional?: boolean; disabled?: boolean; type?: "text" | "email"; maxLength?: number; placeholder?: string; autoComplete?: string; accessory?: ReactNode;
+  optional?: boolean; disabled?: boolean; type?: "text" | "email" | "tel"; maxLength?: number; placeholder?: string; autoComplete?: string; accessory?: ReactNode;
 }) {
   return (
     <div>
@@ -28,7 +28,7 @@ export function TextField({ id, label, value, onChange, hint, error, optional = 
         {accessory}
       </div>
       <Input id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)} type={type}
-        inputMode={type === "email" ? "email" : "text"} required={!optional && !disabled} disabled={disabled} autoComplete={autoComplete}
+        inputMode={type} required={!optional && !disabled} disabled={disabled} autoComplete={autoComplete}
         maxLength={maxLength} placeholder={placeholder} aria-invalid={Boolean(error)} aria-describedby={describedBy(id, hint, error)}
         className="h-12 rounded-md px-3.5 text-base md:text-base" />
       {hint && <p id={`${id}-hint`} className="mt-2 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}

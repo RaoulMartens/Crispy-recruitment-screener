@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { FORM_VERSION, initialAnswers, getSteps, validateStep, firstInvalidStep, createSubmission, createReviewAnswers, parseSubmission, hasWorkplace } from "../src/lib/screener/steps.ts";
-import { sheetHeaders, toSheetRow, SHEET_SUFFIX } from "../src/lib/screener/submission-storage.ts";
+import { sheetHeaders, sheetHeaderUpdate, toSheetRow, SHEET_SUFFIX } from "../src/lib/screener/submission-storage.ts";
 
 function valid(participantType = "both") {
   return { ...initialAnswers, participantType, employerLocation: " Venlo ", employerType: " Bakkerij ", employerSize: "2–9", staffingNeed: "multiple",
@@ -56,7 +56,7 @@ test("registration requires valid contact data and carries consent from the subm
   assert.equal(createSubmission(valid()).consent, true);
   for (const overrides of [{ name: " " }, { email: "wrong" }]) assert.throws(() => createSubmission({ ...valid(), ...overrides }));
 });
-test("opt-out review shows answers without requiring or retaining contact details", () => {
+test("answer mapping keeps questionnaire and contact details separate", () => {
   const answers = { ...valid("personal"), name: "", email: "" };
   const review = createReviewAnswers(answers);
   assert.equal(review.worker.homeLocation, "Venray");
@@ -68,7 +68,7 @@ test("opt-out review shows answers without requiring or retaining contact detail
 test("server accepts exactly the compact schema and rejects missing consent and legacy fields", () => {
   const payload = createSubmission(valid());
   assert.deepEqual(parseSubmission(payload), payload);
-  for (const invalid of [null, [], {}, { ...payload, consent: false }, { ...payload, formVersion: "v4" }, { ...payload, contact: { ...payload.contact, phone: "0612345678" } }, { ...payload, employer: { ...payload.employer, hiringRole: "direct" } }, { ...payload, worker: { ...payload.worker, openToWork: "" } }]) assert.equal(parseSubmission(invalid), null);
+  for (const invalid of [null, [], {}, { ...payload, consent: false }, { ...payload, formVersion: "v4" }, { ...payload, contact: { ...payload.contact, channel: "phone" } }, { ...payload, employer: { ...payload.employer, hiringRole: "direct" } }, { ...payload, worker: { ...payload.worker, openToWork: "" } }]) assert.equal(parseSubmission(invalid), null);
   assert.equal(parseSubmission({ ...createSubmission(valid("personal")), employer: payload.employer }), null);
   assert.equal(parseSubmission({ ...payload, worker: { ...payload.worker, situation: "not-working" } }), null);
 });
@@ -82,4 +82,39 @@ test("storage preserves older tabs and records version and consent time in the r
   assert.equal(row[11], "Ja");
   assert.equal(row[12], "Nee");
   assert.equal(row[15], "Ja");
+  assert.equal(row[16], "");
+});
+
+test("phone is optional and retains formatting and leading zeros through parsing and storage", () => {
+  for (const phone of ["", "   ", " 0612345678 ", "+31 (0)6 1234 5678", "077-1234567"]) {
+    const payload = createSubmission({ ...valid(), phone });
+    assert.deepEqual(parseSubmission(payload), payload);
+    assert.equal(payload.contact.phone, phone.trim() || undefined);
+    assert.equal(toSheetRow(payload, "2026-09-21T12:00:00.000Z")[16], phone.trim());
+  }
+});
+
+test("invalid phone input is rejected by both client validation and the server boundary", () => {
+  const payload = createSubmission(valid());
+  for (const phone of ["123", "bel mij", "06abc12345678", "0612345678901234", "++31612345678", "0".repeat(41)]) {
+    assert.ok(validateStep("contact", { ...valid(), phone }).phone);
+    assert.throws(() => createSubmission({ ...valid(), phone }));
+    assert.equal(parseSubmission({ ...payload, contact: { ...payload.contact, phone } }), null);
+  }
+  for (const phone of [612345678, null, {}, []]) {
+    assert.equal(parseSubmission({ ...payload, contact: { ...payload.contact, phone } }), null);
+  }
+});
+
+test("sheet header migration only appends the phone column and is safe to retry", () => {
+  const legacyHeader = sheetHeaders.slice(0, 16);
+  assert.deepEqual(sheetHeaderUpdate(legacyHeader), { range: "Q1", values: [["Telefoonnummer"]] });
+  assert.equal(sheetHeaderUpdate([...legacyHeader, "Telefoonnummer"]), null);
+  assert.deepEqual(sheetHeaderUpdate([]), { range: "A1:Q1", values: [sheetHeaders] });
+  for (const unknown of [["timestamp"], legacyHeader.slice(0, 15), [...legacyHeader, "Not a phone column"]]) {
+    assert.throws(() => sheetHeaderUpdate(unknown), /Onverwachte kolomkoppen/);
+  }
+  const withoutPhone = createSubmission(valid());
+  const withPhone = createSubmission({ ...valid(), phone: "0612345678" });
+  assert.deepEqual(toSheetRow(withPhone, "timestamp").slice(0, 16), toSheetRow(withoutPhone, "timestamp").slice(0, 16));
 });
