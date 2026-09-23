@@ -22,7 +22,7 @@ const titles: Record<StepId, string> = {
   contact: "Mag ik contact met je opnemen?", complete: "Bedankt",
 };
 const descriptions: Partial<Record<StepId, string>> = {
-  intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe werkgevers en mensen in Noord-Limburg elkaar vinden en wat goed werkt.",
+  intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe mensen en werkgevers elkaar vinden en wat daarbij goed werkt.",
   contact: "Ik neem contact met je op als jouw situatie aansluit op de gesprekken die ik wil voeren.",
 };
 type Completion = { fortune: Fortune; screenCount: number; submission: Submission };
@@ -195,7 +195,7 @@ export function Screener() {
     url.searchParams.set("via", "share");
     if (navigator.share) {
       try {
-        await navigator.share({ text: "Misschien iets voor jou: Raoul onderzoekt hoe mensen in Noord-Limburg werk vinden, waarom ze blijven of overstappen en hoe organisaties personeel aannemen. Ook zoekt hij mensen die zelf betrokken zijn bij werving of selectie bij kleine of grote organisaties die regelmatig personeel nodig hebben of doorlopend werven. Aanmelden voor zijn afstudeeronderzoek bij Crispy duurt 1–2 minuten.", url: url.toString() });
+        await navigator.share({ text: "Misschien iets voor jou: voor een afstudeeronderzoek bij Crispy zoekt Raoul mensen die hun ervaringen met werk of personeelswerving willen delen. Invullen duurt 1–2 minuten.", url: url.toString() });
         showShareStatus("shared"); return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
