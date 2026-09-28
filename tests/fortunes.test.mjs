@@ -29,6 +29,16 @@ test("the fortune data contains 90 unique entries", () => {
   assert.equal(new Set(fortunes.map((fortune) => fortune.id)).size, 90);
 });
 
+test("fortune copy is unique, compact, and leaves wrapping to the available space", () => {
+  assert.equal(new Set(fortunes.map((fortune) => fortune.text)).size, 90);
+
+  for (const fortune of fortunes) {
+    assert.equal(fortune.text, fortune.text.trim(), fortune.id);
+    assert.ok(fortune.text.length <= 64, `${fortune.id} is too long for the paper`);
+    assert.doesNotMatch(fortune.text, /[\r\n]|\s{2,}/, fortune.id);
+  }
+});
+
 test("each audience has all five tones with six fortunes each", () => {
   for (const audience of fortuneAudiences) {
     const audiencePool = getFortunesByAudience(audience);

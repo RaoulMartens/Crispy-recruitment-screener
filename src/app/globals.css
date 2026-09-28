@@ -226,25 +226,9 @@
 }
 
 .fortune-cookie-copy {
-  display: grid;
-  gap: 0.025em;
+  display: block;
   max-width: 100%;
-}
-
-.fortune-cookie-line {
-  display: flex;
-  justify-content: center;
-  white-space: nowrap;
-}
-
-.fortune-cookie-word {
-  display: inline-block;
-  transform: translateY(var(--fortune-word-y))
-    rotate(var(--fortune-word-rotation));
-}
-
-.fortune-cookie-word + .fortune-cookie-word {
-  margin-left: 0.26em;
+  text-wrap: balance;
 }
 
 @media (hover: hover) {

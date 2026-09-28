@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import type { Fortune } from "@/lib/screener/fortunes";
 
@@ -21,49 +20,6 @@ type AnimationState = "idle" | "preparing" | "playing" | "opened" | "error";
 type FortuneCookieAnimationProps = {
   fortune: Fortune;
 };
-
-type FortuneWordStyle = CSSProperties & {
-  "--fortune-word-y": string;
-  "--fortune-word-rotation": string;
-};
-
-function balanceFortuneLines(fortune: string) {
-  const words = fortune.trim().split(/\s+/);
-  const lineCount = Math.min(words.length, fortune.length > 42 ? 3 : fortune.length > 24 ? 2 : 1);
-  const targetLength = (fortune.length - lineCount + 1) / lineCount;
-  let bestLines = [words];
-  let bestScore = Infinity;
-
-  // Compare whole-word breaks so a long word cannot leave the last line crowded.
-  function distribute(start: number, lines: string[][]) {
-    const remainingLines = lineCount - lines.length;
-    if (remainingLines === 1) {
-      const candidate = [...lines, words.slice(start)];
-      const score = candidate.reduce((sum, line) => sum + (line.join(" ").length - targetLength) ** 2, 0);
-      if (score < bestScore) {
-        bestScore = score;
-        bestLines = candidate;
-      }
-      return;
-    }
-    for (let end = start + 1; end <= words.length - remainingLines + 1; end += 1) {
-      distribute(end, [...lines, words.slice(start, end)]);
-    }
-  }
-
-  distribute(0, []);
-  return bestLines;
-}
-
-function getFortuneWordStyle(index: number, wordCount: number): FortuneWordStyle {
-  const position = wordCount > 1 ? (index / (wordCount - 1)) * 2 - 1 : 0;
-  const curve = -(1 - position ** 2) * 1.6;
-
-  return {
-    "--fortune-word-y": `${curve.toFixed(2)}px`,
-    "--fortune-word-rotation": `${(position * 0.7).toFixed(2)}deg`,
-  };
-}
 
 function preloadFrames() {
   return Promise.all(
@@ -162,7 +118,6 @@ export function FortuneCookieAnimation({
   }
 
   const isInteractive = animationState === "idle";
-  const fortuneLines = balanceFortuneLines(fortune.text);
 
   return (
     <div ref={stageRef} className="fortune-cookie-stage" data-state={animationState} data-in-view={isVisible}>
@@ -205,22 +160,7 @@ export function FortuneCookieAnimation({
           aria-label={fortune.text}
         >
           <span className="fortune-cookie-copy" aria-hidden="true">
-            {fortuneLines.map((line, lineIndex) => (
-              <span
-                className="fortune-cookie-line"
-                key={`${lineIndex}-${line.join("-")}`}
-              >
-                {line.map((word, wordIndex) => (
-                  <span
-                    className="fortune-cookie-word"
-                    style={getFortuneWordStyle(wordIndex, line.length)}
-                    key={`${wordIndex}-${word}`}
-                  >
-                    {word}
-                  </span>
-                ))}
-              </span>
-            ))}
+            {fortune.text}
           </span>
         </p>
       ) : null}
