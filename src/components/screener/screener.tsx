@@ -22,7 +22,7 @@ const titles: Record<StepId, string> = {
   contact: "Mag ik contact met je opnemen?", complete: "Bedankt",
 };
 const descriptions: Partial<Record<StepId, string>> = {
-  intro: "Voor mijn afstudeerproject bij Crispy onderzoek ik hoe mensen en werkgevers elkaar vinden en wat daarbij goed werkt.",
+  intro: "Voor mijn afstudeeronderzoek bij Crispy verzamel ik ervaringen met werk en personeel aannemen.",
   contact: "Ik neem contact met je op als jouw situatie aansluit op de gesprekken die ik wil voeren.",
 };
 type Completion = { fortune: Fortune; screenCount: number; submission: Submission };
@@ -219,7 +219,7 @@ export function Screener() {
           <form onSubmit={next} noValidate aria-labelledby="step-title" aria-busy={busy}>
             <fieldset disabled={busy} className="min-w-0">
               {stepId === "intro" && <>
-                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Met een paar korte vragen kijk ik wie ik kan uitnodigen. Aanmelden is vrijblijvend.</p>
+                <p className="mb-4 text-[0.9375rem] leading-[1.55] text-muted-foreground">Ook als je niet actief zoekt of zelden personeel aanneemt, kun je dit invullen. Ik kijk later wie ik uitnodig voor een gesprek. Meedoen is vrijblijvend.</p>
                 <p className="mb-8 text-sm leading-[1.55] font-medium">Als bedankje krijg je aan het einde een digitaal gelukskoekje.</p>
                 <ChoiceField {...fieldProps("participantType")} label="Waarover wil je vertellen?" options={participantOptions} />
               </>}

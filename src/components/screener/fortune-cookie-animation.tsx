@@ -29,35 +29,30 @@ type FortuneWordStyle = CSSProperties & {
 
 function balanceFortuneLines(fortune: string) {
   const words = fortune.trim().split(/\s+/);
-  const lineCount = fortune.length > 56 ? 3 : fortune.length > 24 ? 2 : 1;
-  const targetLength = fortune.length / lineCount;
-  const lines: string[][] = [];
-  let currentLine: string[] = [];
-  let currentLength = 0;
+  const lineCount = Math.min(words.length, fortune.length > 42 ? 3 : fortune.length > 24 ? 2 : 1);
+  const targetLength = (fortune.length - lineCount + 1) / lineCount;
+  let bestLines = [words];
+  let bestScore = Infinity;
 
-  words.forEach((word, index) => {
-    const nextLength = currentLength + (currentLine.length ? 1 : 0) + word.length;
-    const remainingWords = words.length - index;
-    const remainingLines = lineCount - lines.length - 1;
-
-    if (
-      currentLine.length > 0 &&
-      lines.length < lineCount - 1 &&
-      nextLength > targetLength &&
-      remainingWords >= remainingLines
-    ) {
-      lines.push(currentLine);
-      currentLine = [word];
-      currentLength = word.length;
+  // Compare whole-word breaks so a long word cannot leave the last line crowded.
+  function distribute(start: number, lines: string[][]) {
+    const remainingLines = lineCount - lines.length;
+    if (remainingLines === 1) {
+      const candidate = [...lines, words.slice(start)];
+      const score = candidate.reduce((sum, line) => sum + (line.join(" ").length - targetLength) ** 2, 0);
+      if (score < bestScore) {
+        bestScore = score;
+        bestLines = candidate;
+      }
       return;
     }
+    for (let end = start + 1; end <= words.length - remainingLines + 1; end += 1) {
+      distribute(end, [...lines, words.slice(start, end)]);
+    }
+  }
 
-    currentLine.push(word);
-    currentLength = nextLength;
-  });
-
-  if (currentLine.length) lines.push(currentLine);
-  return lines;
+  distribute(0, []);
+  return bestLines;
 }
 
 function getFortuneWordStyle(index: number, wordCount: number): FortuneWordStyle {
