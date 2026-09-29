@@ -6,9 +6,9 @@ import "@fontsource/poppins/800.css";
 import "./globals.css";
 
 const siteUrl = "https://werkonderzoek-screener.vercel.app";
-const title = "Denk mee over werk en personeel";
+const title = "Jouw ervaringen met werk en personeel";
 const description =
-  "Beantwoord een paar vragen en krijg een digitaal gelukskoekje.";
+  "Deel je ervaringen met werk en personeel voor een afstudeeronderzoek en ontvang een digitaal gelukskoekje.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

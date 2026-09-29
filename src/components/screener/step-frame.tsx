@@ -14,7 +14,7 @@ export function StepFrame({ title, description, children, roomyDescription = fal
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
-  }, []);
+  }, [title]);
 
   return (
     <section aria-labelledby="step-title" className="step-enter">
