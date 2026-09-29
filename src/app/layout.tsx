@@ -8,7 +8,7 @@ import "./globals.css";
 const siteUrl = "https://werkonderzoek-screener.vercel.app";
 const title = "Jouw ervaringen met werk en personeel";
 const description =
-  "Deel je ervaringen met werk en personeel voor een afstudeeronderzoek en ontvang een digitaal gelukskoekje.";
+  "Deel wat jij belangrijk vindt en waar je tegenaan loopt. Invullen duurt ongeveer 5 minuten, met een digitaal gelukskoekje als bedankje.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

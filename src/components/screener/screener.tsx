@@ -166,7 +166,7 @@ export function Screener() {
     const url = new URL("/", window.location.origin); url.searchParams.set("via", "share");
     if (navigator.share) {
       try {
-        await navigator.share({ title: stepTitles.intro, text: "Deel je ervaringen met werk en personeel voor een afstudeeronderzoek en ontvang een digitaal gelukskoekje.", url: url.toString() });
+        await navigator.share({ title: stepTitles.intro, text: "Deel wat jij belangrijk vindt en waar je tegenaan loopt. Invullen duurt ongeveer 5 minuten, met een digitaal gelukskoekje als bedankje.", url: url.toString() });
         showShareStatus("shared"); return;
       } catch (error) { if (error instanceof DOMException && error.name === "AbortError") return; }
     }
@@ -181,7 +181,7 @@ export function Screener() {
     <div className="screener mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 sm:px-10">
       <main id="main-content" className="mx-auto w-full max-w-[34rem] flex-1 pb-16 pt-8 sm:pt-12">
         <div className="mb-6 flex min-h-5 items-center justify-between gap-4 text-xs text-muted-foreground tabular-nums">
-          <span>{stepId === "intro" ? "Invullen duurt ongeveer 5–10 minuten" : stepId === "complete" ? "Afgerond" : isContentStep(stepId) ? stepId.startsWith("employer") ? "Over de organisatie" : "Over jouw werk" : "Jouw bijdrage"}</span>
+          <span>{stepId === "intro" ? "Invullen duurt ongeveer 5 minuten" : stepId === "complete" ? "Afgerond" : isContentStep(stepId) ? stepId.startsWith("employer") ? "Over de organisatie" : "Over jouw werk" : "Jouw bijdrage"}</span>
           {(state.participantType || completion) && <span aria-label={`Scherm ${screenNumber} van ${screenCount}`}>{screenNumber} / {screenCount}</span>}
         </div>
         {stepId !== "complete" && <StepFrame key={stepId} title={stepTitles[stepId]}>
@@ -190,7 +190,7 @@ export function Screener() {
               {stepId === "intro" && <div className="space-y-5">
                 <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Wat vind jij belangrijk in een baan of een nieuwe medewerker? Hoe zoek je en waar loop je tegenaan? Met jouw antwoorden onderzoek ik wat goed gaat en wat beter kan, van de zoektocht tot de ervaringen daarna.</p>
                 <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Ook als je niet actief zoekt of zelden personeel aanneemt, is je bijdrage welkom.</p>
-                <p className="text-sm leading-[1.55]">Na het invullen krijg je een digitaal gelukskoekje als bedankje.</p>
+                <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Na het invullen krijg je een digitaal gelukskoekje als bedankje.</p>
                 <ChoiceField id="participantType" label="Vanuit welke kant vul je dit in?" options={perspectiveOptions} value={state.participantType} error={errors.participantType}
                   onChange={(value) => { if (isParticipantType(value)) updateState({ participantType: value, firstRoute: "", secondRoute: "" }); }} />
                 {state.participantType === "both" && <ChoiceField id="firstRoute" label="Waar wil je mee beginnen?" options={firstRouteOptions} value={state.firstRoute} error={errors.firstRoute}
