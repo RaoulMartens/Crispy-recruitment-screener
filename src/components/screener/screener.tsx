@@ -236,11 +236,8 @@ export function Screener() {
               </div>}
             </fieldset>
           </form>
-          <div role="status" aria-live="polite" aria-atomic="true">
-            {busy && <div className="mt-5 rounded-md bg-accent p-4 text-sm text-foreground">
-              <p className="font-semibold">Je antwoorden worden verstuurd</p>
-              <p className="mt-1 leading-relaxed">Even geduld. Houd deze pagina open totdat je de bevestiging ziet.</p>
-            </div>}
+          <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {busy ? "Je antwoorden worden verstuurd." : ""}
           </div>
         </StepFrame>}
         {stepId === "complete" && completion && <>
