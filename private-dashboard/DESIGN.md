@@ -50,7 +50,7 @@ Poppins met vaste schaal: hoofdtitel, vraag, sectietitel, body en kleine context
 
 ## Layout
 
-Een smalle filterkolom naast het resultaat. Op mobiel staan de filters boven de antwoorden. Antwoordlabel, balk en aantal vormen één herhaald leespatroon.
+Een smalle filterkolom naast het resultaat. Op mobiel staan de filters boven de antwoorden. Standaard een rustige deelnemerslijst met naam, datum en ingevulde routes. Een klik opent het antwoordoverzicht: onderwerp, vraag in gedempte tekst en het letterlijke antwoord eronder, zoals de antwoordweergave van de vragenlijst. Een terugknop brengt je naar dezelfde deelnemer in de lijst. In `Patronen per vraag` vormen antwoordlabel, balk en aantal één herhaald leespatroon.
 
 ## Elevation & Depth
 

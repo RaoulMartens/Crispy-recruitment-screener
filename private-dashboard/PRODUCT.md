@@ -20,7 +20,7 @@ Op Raouls eigen computer; bron is de bestaande Google Sheets-koppeling. Huidige 
 
 ## Capabilities and Constraints
 
-Resultaten per vraag, routes, sector en zoekcontext; open antwoorden; automatisch verversen. Alleen-lezen. Geen publieke hosting. Contactvelden worden niet naar de browser gestuurd. Open antwoorden kunnen herkenbare tekst bevatten.
+Deelnemerslijst met opgegeven namen en een antwoordoverzicht per inzending. Zonder naam wordt het inzendnummer getoond. Resultaten per vraag, routes, sector en zoekcontext; open antwoorden; automatisch verversen. Alleen-lezen. Geen publieke hosting. E-mail en telefoon worden niet naar de browser gestuurd. Open antwoorden kunnen herkenbare tekst bevatten.
 
 ## Brand Commitments
 
@@ -28,7 +28,7 @@ Gebruikt het bestaande Crispy-logo en de bestaande typografie. Geen nieuwe merki
 
 ## Evidence on Hand
 
-De huidige v5-vragenlijst en opslagkolommen zijn de bron. De gekoppelde v5-sheet is momenteel leeg; het dashboard verzint geen antwoorden.
+De huidige v5-vragenlijst en opslagkolommen zijn de bron. Het dashboard toont de werkelijke inzendingen en verzint geen antwoorden.
 
 ## Product Principles
 

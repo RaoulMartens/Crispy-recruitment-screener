@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, Check, Share2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, LoaderCircle, Share2 } from "lucide-react";
 import welcomeCover from "../../../public/welcome-cover.webp";
 import { Button } from "@/components/ui/button";
 import { StepFrame } from "@/components/screener/step-frame";
@@ -219,7 +219,11 @@ export function Screener() {
               {sendError && <p role="alert" className="mt-5 text-sm text-destructive">{sendError}</p>}
               <div className={stepId === "intro" ? "mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" : "mt-8 flex items-center justify-between gap-4"}>
                 {stepId !== "intro" ? <Button type="button" variant="ghost" size="lg" onClick={() => goTo(steps[stepIndex - 1])} className="back-button -ml-4 text-muted-foreground"><ArrowLeft aria-hidden="true" className="back-arrow" /> Terug</Button> : <ShareResearchButton status={shareStatus} onShare={shareResearch} variant="ghost" className="-ml-4 self-start text-muted-foreground" />}
-                <Button type="submit" size="lg" className={stepId === "intro" ? "next-button w-full sm:w-auto" : "next-button"} disabled={busy}>{busy ? "Versturen…" : stepId === "closing" ? "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
+                <Button type="submit" size="lg" className={stepId === "intro" ? "next-button w-full sm:w-auto" : "next-button min-w-32"} disabled={busy} data-sending={busy}>
+                  {busy ? <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" /> : null}
+                  {busy ? "Versturen…" : stepId === "closing" ? "Versturen" : "Verder"}
+                  {!busy && <ArrowRight aria-hidden="true" className="next-arrow" />}
+                </Button>
               </div>
               {isSecondRoute && <div className="mt-6 text-sm text-muted-foreground">
                 {!skipConfirmation ? <button type="button" className="min-h-11 underline underline-offset-4" onClick={() => setSkipConfirmation(true)}>Deze tweede reeks vragen overslaan</button> : <div className="space-y-3">
@@ -232,6 +236,12 @@ export function Screener() {
               </div>}
             </fieldset>
           </form>
+          <div role="status" aria-live="polite" aria-atomic="true">
+            {busy && <div className="mt-5 rounded-md bg-accent p-4 text-sm text-foreground">
+              <p className="font-semibold">Je antwoorden worden verstuurd</p>
+              <p className="mt-1 leading-relaxed">Even geduld. Houd deze pagina open totdat je de bevestiging ziet.</p>
+            </div>}
+          </div>
         </StepFrame>}
         {stepId === "complete" && completion && <>
           {!visitedAnswers && <CompletionConfetti />}

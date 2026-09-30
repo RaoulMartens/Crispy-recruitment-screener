@@ -2,10 +2,74 @@ import { filterRows, aggregate } from "/model.mjs";
 const $ = id => document.getElementById(id);
 let data;
 let route = "personal";
+let view = "participants";
+let selectedParticipant = null;
 const fragment = location.hash.slice(1);
 if (fragment) { sessionStorage.setItem("crispy-dashboard-token", fragment); history.replaceState(null, "", "/"); }
 const token = sessionStorage.getItem("crispy-dashboard-token") ?? "";
 function node(tag, text, className) { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; }
+function participantName(row) { return row.name || `${row.reference} (zonder naam)`; }
+function participantDate(row) {
+  const date = new Date(row.date);
+  return Number.isNaN(date.getTime()) ? "Datum onbekend" : date.toLocaleString("nl-NL", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function reviewSection(title, entries) {
+  const section = node("section", undefined, "review-section");
+  const list = node("dl");
+  section.append(node("h3", title), list);
+  for (const entry of entries) {
+    const pair = node("div");
+    pair.append(node("dt", entry.label), node("dd", entry.value));
+    list.append(pair);
+  }
+  return section;
+}
+function renderParticipants(rows) {
+  const participant = rows.find(row => row.id === selectedParticipant);
+  if (!participant) selectedParticipant = null;
+  $("participants-view").setAttribute("aria-pressed", String(view === "participants"));
+  $("patterns-view").setAttribute("aria-pressed", String(view === "patterns"));
+  $("question-field").hidden = view !== "patterns";
+  $("patterns-panel").hidden = view !== "patterns";
+  $("participants-panel").hidden = view !== "participants" || Boolean(participant);
+  $("participant-detail").hidden = view !== "participants" || !participant;
+  $("participants-title").textContent = `Deelnemers (${rows.length})`;
+  $("participants-list").replaceChildren();
+  if (!rows.length) {
+    const empty = node("div", undefined, "empty");
+    empty.append(node("h3", data.rows.length ? "Geen deelnemers in deze selectie" : "Nog geen inzendingen"), node("p", data.rows.length ? "Kies een andere vragenlijstversie of wis de filters." : "Nieuwe inzendingen verschijnen hier zodra iemand het formulier verstuurt."));
+    $("participants-list").append(empty);
+  }
+  for (const row of rows.slice().sort((a, b) => b.date.localeCompare(a.date, "nl"))) {
+    const button = node("button", undefined, "participant-row");
+    button.type = "button";
+    button.dataset.participantId = row.id;
+    const text = node("span", undefined, "participant-label");
+    text.append(node("strong", participantName(row)), node("small", `${participantDate(row)} · ${row.routes.map(r => r === "personal" ? "Eigen werk of studie" : "De organisatie").join(" en ")}`));
+    button.append(text, node("span", "Bekijk antwoorden", "participant-action"));
+    button.addEventListener("click", () => {
+      selectedParticipant = row.id; render();
+      $("participant-title").focus();
+      $("participant-detail").scrollIntoView({ block: "start" });
+    });
+    $("participants-list").append(button);
+  }
+  $("participant-answers").replaceChildren();
+  if (!participant) return;
+  $("participant-title").textContent = participantName(participant);
+  $("participant-meta").textContent = `${participant.reference} · ${participantDate(participant)}`;
+  const routes = participant.routes.map(r => r === "personal" ? "Eigen werk of studie" : "De organisatie").join(" en ");
+  const closing = [
+    ...(participant.comment.trim() ? [{ label: "Wil je nog iets meegeven?", value: participant.comment }] : []),
+    { label: "Mag Raoul contact met je opnemen voor een gesprek over je antwoorden?", value: participant.interviewConsent || "Niet ingevuld" },
+    ...(participant.name ? [{ label: "Naam", value: participant.name }] : []),
+  ];
+  $("participant-answers").append(
+    reviewSection("Ingevulde onderdelen", [{ label: "Waarover heb je verteld?", value: routes }]),
+    ...participant.sections.map(section => reviewSection(section.title, section.entries)),
+    reviewSection("Tot slot", closing),
+  );
+}
 function quotes(target, items, empty) {
   $(target).replaceChildren();
   if (!items.length) { $(target).append(node("p", empty, "note")); return; }
@@ -43,6 +107,7 @@ function render() {
   for (const [count, label] of [[versionRows.length,"inzendingen in deze versie"],[personal,"personen"],[employer,"organisaties"],[rows.length,"binnen je selectie"]]) { const el = node("span"); el.append(node("strong", String(count)), document.createTextNode(` ${label}`)); $("sample").append(el); }
   $("context-field").hidden = route !== "personal";
   for (const id of ["personal", "employer"]) $(id).setAttribute("aria-pressed", String(route === id));
+  renderParticipants(rows);
   const contextual = ["personalChannels","personalBarriers","personalChecks"].includes(q.id);
   const mixed = contextual && new Set(rows.map(r => r.context).filter(Boolean)).size > 1;
   const hypothetical = contextual && rows.length && rows.every(r => r.context.startsWith("Verwachting"));
@@ -81,4 +146,11 @@ for (const id of ["sector","context","question"]) $(id).addEventListener("change
 $("version").addEventListener("change", () => { $("sector").value=""; $("context").value=""; configure(); render(); });
 $("reset").addEventListener("click", () => { $("sector").value=""; $("context").value=""; render(); });
 $("refresh").addEventListener("click", load);
+for (const [id, nextView] of [["participants-view", "participants"], ["patterns-view", "patterns"]]) $(id).addEventListener("click", () => { view = nextView; render(); });
+$("back-to-participants").addEventListener("click", () => {
+  const previous = selectedParticipant;
+  selectedParticipant = null; render();
+  const button = [...$("participants-list").children].find(el => el.dataset.participantId === previous);
+  button?.focus();
+});
 await load(); setInterval(() => { if (!document.hidden) load(); }, 60_000);

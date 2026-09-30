@@ -77,6 +77,11 @@
   transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.screener .next-button[data-sending="true"] {
+  opacity: 1;
+  cursor: wait;
+}
+
 .screener .next-button:active .next-arrow,
 .screener .next-button:focus-visible .next-arrow {
   transform: translateX(2px);

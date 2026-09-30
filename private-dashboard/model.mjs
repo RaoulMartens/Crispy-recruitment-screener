@@ -1,6 +1,6 @@
 import { questions, resolveQuestion, detailedSectors } from "../src/lib/screener/research-questions.ts";
 import { questions as previousQuestions, resolveQuestion as resolvePreviousQuestion } from "../src/lib/screener/research-questions-v1.ts";
-import { RESEARCH_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION } from "../src/lib/screener/research.ts";
+import { RESEARCH_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION, stepTitles } from "../src/lib/screener/research.ts";
 import { researchHeaders, RESEARCH_SHEET_SUFFIX } from "../src/lib/screener/research-storage.ts";
 
 export { RESEARCH_SHEET_SUFFIX };
@@ -19,23 +19,45 @@ export const versions = [
   { id: PREVIOUS_RESEARCH_VERSION, label: "Eerdere vragenlijst", questions: defineQuestions(previousQuestions, resolvePreviousQuestion) },
 ];
 
-// Alleen onderzoeksantwoorden: geen namen, e-mail, telefoon of inhoudsvingerafdrukken.
+function answerSections(row) {
+  const previous = row.version === PREVIOUS_RESEARCH_VERSION;
+  const source = previous ? previousQuestions : questions;
+  const resolve = previous ? resolvePreviousQuestion : resolveQuestion;
+  const search = row.context.startsWith("Ervaring") ? "active" : row.context.startsWith("Niet ingedeeld") ? "other" : "no";
+  const sections = [];
+  for (const route of row.routes) {
+    for (const group of ["context", "search", "experience"]) {
+      const step = `${route}-${group}`;
+      const entries = source.filter(q => q.step === step && row.answers[q.id]?.trim()).map(q => ({
+        label: resolve(q, { personalRecentSearch: search }).label, value: row.answers[q.id],
+      }));
+      if (entries.length) sections.push({ title: stepTitles[step], entries });
+    }
+  }
+  return sections;
+}
+
+// Namen alleen voor het lokale deelnemersoverzicht; e-mail en telefoon blijven op de server.
 export function parseRows(values) {
   if (!values.length || JSON.stringify(values[0]) !== JSON.stringify(researchHeaders)) {
     throw new Error("De kolommen van het onderzoek zijn gewijzigd. Controleer eerst de gegevenskoppeling.");
   }
   const index = new Map(values[0].map((label, i) => [label, i]));
   return values.slice(1).filter(row => row[0]).map((row, i) => {
-    const answers = Object.fromEntries(definitions.map(q => {
+    const answers = Object.fromEntries(questions.map(q => {
       const col = values[0].findIndex(h => h.startsWith(`${q.id}:`) && !h.endsWith(": Anders"));
       return [q.id, String(row[col] ?? "")];
     }));
-    return {
+    const participant = {
+      id: String(row[0]),
+      name: row[index.get("Toestemming interviewcontact")] === "Ja" ? String(row[index.get("Naam")] ?? "").trim() : "",
+      interviewConsent: String(row[index.get("Toestemming interviewcontact")] ?? ""),
       reference: `Inzending ${i + 1}`, date: String(row[index.get("Ingezonden op")] ?? ""), version: String(row[index.get("Formulierversie")] ?? ""),
       routes: String(row[index.get("Ingevulde routes")] ?? "").split("; ").filter(r => r === "personal" || r === "employer"),
       context: String(row[index.get("Zoekcontext (ervaring of verwachting)")] ?? ""),
       comment: String(row[index.get("Aanvulling")] ?? ""), answers,
     };
+    return { ...participant, sections: answerSections(participant) };
   });
 }
 
