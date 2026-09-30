@@ -28,11 +28,11 @@ export function TextField({ id, label, value, onChange, hint, error, optional = 
         <Label htmlFor={id} className="text-sm leading-[1.45] font-medium">{label}{optional && <span className="font-normal text-muted-foreground"> (optioneel)</span>}</Label>
         {accessory}
       </div>
+      {hint && <p id={`${id}-hint`} className="mb-3 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}
       <Input id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)} type={type}
         inputMode={type} required={!optional && !disabled} disabled={disabled} autoComplete={autoComplete}
         maxLength={maxLength} placeholder={placeholder} aria-invalid={Boolean(error)} aria-describedby={describedBy(id, hint, error)}
         className="h-12 rounded-md px-3.5 text-base md:text-base" />
-      {hint && <p id={`${id}-hint`} className="mt-2 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}
       <FieldError id={id} error={error} />
     </div>
   );
@@ -57,6 +57,7 @@ export function ChoiceField({ id, label, value, onChange, hint, error, options }
 export function SelectField({ id, label, value, onChange, error, hint, options }: FieldProps & { options: readonly string[] | readonly Option[] }) {
   return <div>
     <Label htmlFor={id} className="mb-2 block text-sm leading-[1.45] font-medium">{label}</Label>
+    {hint && <p id={`${id}-hint`} className="mb-3 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}
     <div className="relative">
       <select id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)} required aria-invalid={Boolean(error)}
         aria-describedby={describedBy(id, hint, error)}
@@ -66,7 +67,6 @@ export function SelectField({ id, label, value, onChange, error, hint, options }
       </select>
       <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-foreground" />
     </div>
-    {hint && <p id={`${id}-hint`} className="mt-2 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}
     <FieldError id={id} error={error} />
   </div>;
 }
@@ -90,7 +90,7 @@ export function MultiChoiceField({ question, values, onChange, error, otherField
             onChange={() => onChange(toggleChoice(question, values, option.value))} className="size-4 shrink-0 accent-primary" />
           <span>{option.label}</span>
           </Label>
-          {option.value === "other" && checked && otherField}
+          {option.value === (id === "employerEffectiveChannels" ? "own-answer" : "other") && checked && otherField}
         </div>;
       })}
     </div>
@@ -102,9 +102,9 @@ export function MultiChoiceField({ question, values, onChange, error, otherField
 export function TextAreaField({ id, label, value, onChange, hint, error, maxLength = 1500 }: FieldProps & { maxLength?: number }) {
   return <div>
     <Label htmlFor={id} className="mb-2 block text-sm leading-[1.45] font-medium">{label} <span className="font-normal text-muted-foreground">(optioneel)</span></Label>
+    {hint && <p id={`${id}-hint`} className="mb-3 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}
     <textarea id={id} name={id} value={value} onChange={(event) => onChange(event.target.value)} maxLength={maxLength} rows={4}
       aria-invalid={Boolean(error)} aria-describedby={describedBy(id, hint, error)} className="w-full resize-y rounded-md border border-input bg-white p-3.5 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" />
-    {hint && <p id={`${id}-hint`} className="mt-2 text-xs leading-[1.5] text-muted-foreground">{hint}</p>}
     <FieldError id={id} error={error} />
   </div>;
 }

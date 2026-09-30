@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T21:45:00Z",
+  "title": "Design System: Crispy onderzoeksresultaten",
+  "extensions": {
+    "breakpoints": [{ "name": "compact", "value": "850px" }, { "name": "stacked", "value": "620px" }],
+    "shadows": [],
+    "motion": []
+  },
+  "components": [],
+  "narrative": { "overview": "Leesbare, rustige werkinterface die de bestaande Crispy-identiteit volgt.", "rules": [], "dos": ["Gebruik aantallen en de geldige noemer naast percentages."], "donts": ["Voeg geen fictieve antwoorden toe aan de live resultaten."] }
+}

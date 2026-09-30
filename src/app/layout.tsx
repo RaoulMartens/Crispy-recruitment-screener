@@ -6,7 +6,7 @@ import "@fontsource/poppins/800.css";
 import "./globals.css";
 
 const siteUrl = "https://werkonderzoek-screener.vercel.app";
-const title = "Jouw ervaringen met werk en personeel";
+const title = "Jouw ervaringen met werk zoeken of personeel aannemen";
 const description =
   "Deel wat jij belangrijk vindt en waar je tegenaan loopt. Invullen duurt ongeveer 5 minuten, met een digitaal gelukskoekje als bedankje.";
 

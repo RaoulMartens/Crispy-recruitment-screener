@@ -50,13 +50,13 @@ function ReviewSection({ title, rows }: { title: string; rows: { label: string; 
 function SubmittedAnswers({ submission }: { submission: ResearchSubmission }) {
   const state = stateFromResearchSubmission(submission);
   return <div className="space-y-9">
-    <ReviewSection title="Ingevulde routes" rows={[{ label: "Waarover heb je verteld?", value: submission.completedRoutes.map((route) => route === "employer" ? "De organisatie" : "Eigen werk of studie").join(" en ") }]} />
+    <ReviewSection title="Ingevulde onderdelen" rows={[{ label: "Waarover heb je verteld?", value: submission.completedRoutes.map((route) => route === "employer" ? "De organisatie" : "Eigen werk of studie").join(" en ") }]} />
     {getResearchSteps(state).filter(isContentStep).map((step) => <ReviewSection key={step} title={stepTitles[step]} rows={
       getQuestions(step, submission.answers).map((q) => ({ label: q.label, value: answerLabel(q, submission.answers) }))
     } />)}
     <ReviewSection title="Tot slot" rows={[
       ...(submission.comment ? [{ label: "Aanvulling", value: submission.comment }] : []),
-      { label: "Toestemming voor interviewcontact", value: submission.interviewConsent ? "Ja" : "Nee" },
+      { label: "Mag Raoul contact met je opnemen voor een gesprek over je antwoorden?", value: submission.interviewConsent ? "Ja" : "Nee" },
       ...(submission.contact ? [{ label: "Naam", value: submission.contact.name }, { label: "E-mailadres", value: submission.contact.email },
         ...(submission.contact.phone ? [{ label: "Telefoonnummer", value: submission.contact.phone }] : [])] : []),
     ]} />
@@ -69,8 +69,8 @@ function ResearchQuestion({ question, state, errors, onChange }: {
   const { id, label, hint, options = [] } = question;
   const props = { id, label, hint, value: textAnswer(state.answers, id), onChange: (value: string) => onChange(id, value), error: errors[id] };
   const otherId: AnswerId = `${id}Other`;
-  const otherField = hasOther(question, state.answers) ? <TextField id={otherId} label="Anders, namelijk" hideLabel value={textAnswer(state.answers, otherId)}
-    onChange={(value) => onChange(otherId, value)} error={errors[otherId]} maxLength={200} /> : null;
+  const otherField = hasOther(question, state.answers) ? <TextField id={otherId} label={`Eigen antwoord bij: ${label}`} hideLabel value={textAnswer(state.answers, otherId)}
+    onChange={(value) => onChange(otherId, value)} error={errors[otherId]} maxLength={200} placeholder="Vul je eigen antwoord in" /> : null;
   return <div className="space-y-3">
     {question.kind === "text" ? <TextField {...props} optional={question.optional} placeholder="Plaatsnaam" />
       : question.kind === "select" ? <SelectField {...props} options={options} />
@@ -181,17 +181,17 @@ export function Screener() {
     <div className="screener mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 sm:px-10">
       <main id="main-content" className="mx-auto w-full max-w-[34rem] flex-1 pb-16 pt-8 sm:pt-12">
         <div className="mb-6 flex min-h-5 items-center justify-between gap-4 text-xs text-muted-foreground tabular-nums">
-          <span>{stepId === "intro" ? "Invullen duurt ongeveer 5 minuten" : stepId === "complete" ? "Afgerond" : isContentStep(stepId) ? stepId.startsWith("employer") ? "Over de organisatie" : "Over jouw werk" : "Jouw bijdrage"}</span>
-          {(state.participantType || completion) && <span aria-label={`Scherm ${screenNumber} van ${screenCount}`}>{screenNumber} / {screenCount}</span>}
+          <span>{stepId === "intro" ? "Invullen duurt ongeveer 5 minuten" : stepId === "complete" ? "Afgerond" : isContentStep(stepId) ? stepId.startsWith("employer") ? "Over de organisatie" : "Over jouw werk of studie" : "Jouw bijdrage"}</span>
+          {stepId !== "intro" && (state.participantType || completion) && <span aria-label={`Scherm ${screenNumber} van ${screenCount}`}>{screenNumber} / {screenCount}</span>}
         </div>
         {stepId !== "complete" && <StepFrame key={stepId} title={stepTitles[stepId]}>
           <form onSubmit={next} noValidate aria-labelledby="step-title" aria-busy={busy}>
             <fieldset disabled={busy} className="min-w-0">
               {stepId === "intro" && <div className="space-y-5">
-                <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Wat vind jij belangrijk in een baan of een nieuwe medewerker? Hoe zoek je en waar loop je tegenaan? Met jouw antwoorden onderzoek ik wat goed gaat en wat beter kan, van de zoektocht tot de ervaringen daarna.</p>
-                <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Ook als je niet actief zoekt of zelden personeel aanneemt, is je bijdrage welkom.</p>
+                <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Wat vind je belangrijk in een baan of een nieuwe medewerker? Hoe zoek je en wat maak je daarbij mee? Met je antwoorden help je mijn afstudeeronderzoek.</p>
+                <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Ook als je nu geen werk zoekt of zelden personeel aanneemt, zijn je ervaringen welkom.</p>
                 <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Na het invullen krijg je een digitaal gelukskoekje als bedankje.</p>
-                <ChoiceField id="participantType" label="Vanuit welke kant vul je dit in?" options={perspectiveOptions} value={state.participantType} error={errors.participantType}
+                <ChoiceField id="participantType" label="Waarover wil je vertellen?" options={perspectiveOptions} value={state.participantType} error={errors.participantType}
                   onChange={(value) => { if (isParticipantType(value)) updateState({ participantType: value, firstRoute: "", secondRoute: "" }); }} />
                 {state.participantType === "both" && <ChoiceField id="firstRoute" label="Waar wil je mee beginnen?" options={firstRouteOptions} value={state.firstRoute} error={errors.firstRoute}
                   onChange={(value) => { if (isRoute(value)) updateState({ firstRoute: value, secondRoute: "" }); }} />}
@@ -204,7 +204,7 @@ export function Screener() {
                 onChange={(value) => { if (value === "yes" || value === "no") updateState({ secondRoute: value }); }} />}
               {stepId === "closing" && <div className="space-y-6">
                 <TextAreaField id="comment" label="Wil je nog iets meegeven?" value={state.comment} error={errors.comment} onChange={(value) => updateState({ comment: value })} />
-                <ChoiceField id="interviewConsent" label="Mag Raoul contact met je opnemen voor een verdiepend gesprek?"
+                <ChoiceField id="interviewConsent" label="Mag Raoul contact met je opnemen voor een gesprek over je antwoorden?"
                   value={state.interviewConsent} error={errors.interviewConsent} options={yesNo} onChange={(value) => {
                     if (value === "yes" || value === "no") updateState({ interviewConsent: value, ...(value === "no" ? { name: "", email: "", phone: "" } : {}) });
                   }} />
@@ -222,8 +222,8 @@ export function Screener() {
                 <Button type="submit" size="lg" className={stepId === "intro" ? "next-button w-full sm:w-auto" : "next-button"} disabled={busy}>{busy ? "Versturen…" : stepId === "closing" ? "Versturen" : "Verder"}<ArrowRight aria-hidden="true" className="next-arrow" /></Button>
               </div>
               {isSecondRoute && <div className="mt-6 text-sm text-muted-foreground">
-                {!skipConfirmation ? <button type="button" className="min-h-11 underline underline-offset-4" onClick={() => setSkipConfirmation(true)}>Deze tweede route overslaan</button> : <div className="space-y-3">
-                  <p>Je antwoorden op deze tweede route worden niet meegestuurd. Je eerste route blijft behouden.</p>
+                {!skipConfirmation ? <button type="button" className="min-h-11 underline underline-offset-4" onClick={() => setSkipConfirmation(true)}>Deze tweede reeks vragen overslaan</button> : <div className="space-y-3">
+                  <p>Je antwoorden op deze tweede reeks vragen worden niet verstuurd. Je eerdere antwoorden blijven behouden.</p>
                   <div className="flex flex-wrap gap-3">
                     <Button type="button" variant="ghost" onClick={() => { updateState({ secondRoute: "no" }); goTo("closing"); }}>Overslaan en afronden</Button>
                     <Button type="button" variant="ghost" onClick={() => setSkipConfirmation(false)}>Toch verder invullen</Button>

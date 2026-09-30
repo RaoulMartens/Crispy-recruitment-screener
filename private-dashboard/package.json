@@ -1,0 +1,10 @@
+{
+  "name": "crispy-private-results",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types server.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+  },
+  "engines": { "node": ">=22.0.0" }
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="nl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Onderzoeksresultaten · Crispy</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.mjs"></script></head>
+<body>
+<!-- THESIS: Private research workbench, not a public research claim. OWN-WORLD: Crispy Poppins, ink, white and teal; flat working surfaces. STORY: Filter a route, inspect a question, read its actual answers. FIRST VIEWPORT: Narrow sidebar beside a broad answer distribution, current sample and refresh above. FORM: Precisely scoped code-led extension of the existing identity. FINISH: Desktop/mobile inspection, real empty state, tested denominators and private read-only data access. -->
+<header class="topbar"><img src="/logo.png" alt="Crispy" width="104"><span>Onderzoeksresultaten</span><span class="private">Alleen op jouw computer</span></header>
+<main>
+<div class="heading"><div><h1>Wat vertellen de antwoorden?</h1><p>Bekijk patronen in je onderzoek. Ervaringen en verwachtingen blijven herkenbaar.</p></div><button id="refresh" type="button">Verversen</button></div>
+<p id="status" role="status" aria-live="polite">Antwoorden uit Google Sheets laden…</p>
+<div id="error" role="alert" hidden></div>
+<div class="workspace">
+<aside aria-label="Resultaten selecteren">
+<label for="version">Vragenlijstversie</label><select id="version"></select>
+<h2>Perspectief</h2><div class="routes"><button id="personal" type="button" aria-pressed="true">Personen</button><button id="employer" type="button" aria-pressed="false">Organisaties</button></div>
+<label for="sector">Sector</label><select id="sector"><option value="">Alle sectoren</option></select>
+<div id="context-field"><label for="context">Zoekcontext</label><select id="context"><option value="">Ervaring én verwachting</option><option>Ervaring: afgelopen twee jaar</option><option>Verwachting: hypothetisch</option></select></div>
+<label for="question">Vraag</label><select id="question"></select>
+<button id="reset" class="quiet" type="button">Filters wissen</button>
+<div class="source"><h2>Over deze gegevens</h2><p>Kies één vragenlijstversie. Gewijzigde vragen worden niet samengevoegd met eerdere antwoorden. De oudere v4-formulieren blijven apart in Sheets.</p><p>Geen namen of contactgegevens. Open teksten zijn letterlijk overgenomen.</p></div>
+</aside>
+<section class="results" aria-label="Resultaten">
+<div id="sample" class="sample"></div>
+<div class="chart-heading"><h2 id="question-title">Antwoorden</h2><p id="base"></p></div>
+<div id="mixed" class="notice" hidden></div>
+<div id="chart"></div>
+<p id="chart-note" class="note"></p>
+<section class="open"><h2>Toelichtingen bij deze vraag</h2><div id="other"></div></section>
+<section class="open"><h2>Wat deelnemers nog meegeven</h2><p class="note">Aanvullingen van de geselecteerde deelnemers, nieuwste bovenaan.</p><div id="comments"></div></section>
+</section>
+</div>
+</main>
+<footer>Antwoordpatronen zijn nog geen conclusies. Bij kleine aantallen geeft één antwoord al een groot verschil.</footer>
+</body></html>

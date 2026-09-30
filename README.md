@@ -52,7 +52,7 @@ Alleen de server gebruikt:
 
 Geef het serviceaccount schrijftoegang en schakel de Google Sheets API in. Nooit credentials via `NEXT_PUBLIC_*` beschikbaar stellen.
 
-De nieuwe versie `v5-research-1` schrijft naar **<prefix> v5 onderzoek**. Het tabblad, voldoende kolommen en de header worden bij de eerste echte inzending aangemaakt. Onverwachte bestaande headers blokkeren de inzending; onderzoeksgegevens worden niet overschreven. Er is geen productie-sheet gewijzigd tijdens de lokale bouw.
+De huidige versie `v5-research-3` schrijft naar **<prefix> v5 onderzoek**, met 12 herkenbare sectoren plus Anders en onbekend. Nog geopende `v5-research-1`- en `v5-research-2`-formulieren blijven geldig met hun oorspronkelijke opties en opslaglabels. Het tabblad, voldoende kolommen en de header worden bij de eerste echte inzending aangemaakt. Onverwachte bestaande headers blokkeren de inzending; onderzoeksgegevens worden niet overschreven. Er is geen productie-sheet gewijzigd tijdens de lokale bouw.
 
 `v4-employers-3` en `v4-minimal-2` blijven geldig en gebruiken **<prefix> v4 compact**, met hun oorspronkelijke kolombetekenis. De bestaande append-only overgang van 16/17 naar 19 v4-kolommen blijft ondersteund. Oude drie-maandenantwoorden worden niet als twee-jaar-antwoorden behandeld.
 

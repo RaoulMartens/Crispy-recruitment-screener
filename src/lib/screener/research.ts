@@ -1,7 +1,16 @@
 import { isParticipantType, type ParticipantType, validateStep as validateLegacyStep, initialAnswers as legacyInitial } from "./steps.ts";
-import { getQuestions, questions, questionIds, hasOther, textAnswer, multiAnswer, recentSearch, type AnswerId, type AnswerValues, type ContentStep, type Question } from "./research-questions.ts";
+import { getQuestions, questions, questionIds, detailedSectors, hasOther, textAnswer, multiAnswer, searchContext, type AnswerId, type AnswerValues, type ContentStep, type Question } from "./research-questions.ts";
+import { getQuestions as getPreviousQuestions } from "./research-questions-v1.ts";
 
-export const RESEARCH_VERSION = "v5-research-1" as const;
+export const PREVIOUS_RESEARCH_VERSION = "v5-research-1" as const;
+export const DETAILED_SECTOR_VERSION = "v5-research-2" as const;
+export const RESEARCH_VERSION = "v5-research-3" as const;
+export type ResearchVersion = typeof RESEARCH_VERSION | typeof DETAILED_SECTOR_VERSION | typeof PREVIOUS_RESEARCH_VERSION;
+export const isResearchVersion = (value: unknown): value is ResearchVersion => value === RESEARCH_VERSION || value === DETAILED_SECTOR_VERSION || value === PREVIOUS_RESEARCH_VERSION;
+export function versionQuestions(step: ContentStep, answers: AnswerValues, version: ResearchVersion = RESEARCH_VERSION): Question[] {
+  if (version === PREVIOUS_RESEARCH_VERSION) return getPreviousQuestions(step, answers);
+  return getQuestions(step, answers).map((question) => version === DETAILED_SECTOR_VERSION && (question.id === "personalSector" || question.id === "employerSector") ? { ...question, options: detailedSectors } : question);
+}
 export type Route = "employer" | "personal";
 export type ResearchStep = "intro" | ContentStep | "second-route" | "closing" | "complete";
 export type ResearchState = {
@@ -12,14 +21,14 @@ export type ResearchState = {
 export type ResearchErrors = Partial<Record<AnswerId | "participantType" | "firstRoute" | "secondRoute" | "interviewConsent" | "comment" | "name" | "email" | "phone", string>>;
 export const initialResearch: ResearchState = { participantType: "", firstRoute: "", secondRoute: "", answers: {}, comment: "", interviewConsent: "yes", name: "", email: "", phone: "" };
 export const perspectiveOptions = [
-  { value: "employer", label: "Over het zoeken en aannemen van personeel" },
-  { value: "personal", label: "Over mijn eigen situatie en keuzes rond werk" },
+  { value: "employer", label: "Over personeel zoeken en aannemen" },
+  { value: "personal", label: "Over mijn eigen situatie rond werk of studie" },
   { value: "both", label: "Over beide" },
 ];
-export const firstRouteOptions = [{ value: "employer", label: "Eerst over de organisatie" }, { value: "personal", label: "Eerst over mijn eigen werk of studie" }];
+export const firstRouteOptions = [{ value: "employer", label: "Eerst over de organisatie" }, { value: "personal", label: "Eerst over mijn werk of studie" }];
 export const stepTitles: Record<ResearchStep, string> = {
-  intro: "Jouw ervaringen met werk en personeel", "employer-context": "De organisatie", "employer-search": "Personeel vinden", "employer-experience": "Keuzes en ervaringen",
-  "personal-context": "Jouw situatie", "personal-search": "Werk vinden", "personal-experience": "Kiezen en ervaringen", "second-route": "Nog een perspectief?", closing: "Tot slot", complete: "Heel erg bedankt!",
+  intro: "Jouw ervaringen met werk zoeken of personeel aannemen", "employer-context": "De organisatie", "employer-search": "Personeel zoeken", "employer-experience": "Keuzes en ervaringen",
+  "personal-context": "Jouw situatie", "personal-search": "Werk zoeken", "personal-experience": "Keuzes en ervaringen", "second-route": "Ook de andere vragen?", closing: "Tot slot", complete: "Heel erg bedankt!",
 };
 export function isRoute(value: unknown): value is Route { return value === "employer" || value === "personal"; }
 export function isContentStep(value: ResearchStep): value is ContentStep { return value.startsWith("employer-") || value.startsWith("personal-"); }
@@ -38,7 +47,7 @@ export function getResearchSteps(state: ResearchState): ResearchStep[] {
 export function updateResearchAnswer(state: ResearchState, id: AnswerId, value: string | string[]): ResearchState {
   const answers = { ...state.answers, [id]: value };
   // A changed reference period must not relabel old experience as a hypothetical answer.
-  if (id === "personalRecentSearch" && recentSearch(answers) !== recentSearch(state.answers)) {
+  if (id === "personalRecentSearch" && searchContext(answers) !== searchContext(state.answers)) {
     for (const key of ["personalChannels", "personalBarriers", "personalMissingInfo", "personalChecks"] as const) {
       delete answers[key]; delete answers[`${key}Other`];
     }
@@ -74,17 +83,17 @@ function validateQuestion(question: Question, answers: AnswerValues, errors: Res
     else if (textAnswer(answers, key).trim().length > 200) errors[key] = "Gebruik maximaal 200 tekens.";
   }
 }
-export function validateResearchStep(step: ResearchStep, state: ResearchState): ResearchErrors {
+export function validateResearchStep(step: ResearchStep, state: ResearchState, version: ResearchVersion = RESEARCH_VERSION): ResearchErrors {
   const errors: ResearchErrors = {};
   if (step === "intro") {
     if (!isParticipantType(state.participantType)) errors.participantType = "Kies waarover je wilt vertellen.";
-    if (state.participantType === "both" && !isRoute(state.firstRoute)) errors.firstRoute = "Kies met welke route je wilt beginnen.";
+    if (state.participantType === "both" && !isRoute(state.firstRoute)) errors.firstRoute = "Kies waarmee je wilt beginnen.";
   }
-  if (isContentStep(step)) for (const question of getQuestions(step, state.answers)) validateQuestion(question, state.answers, errors);
+  if (isContentStep(step)) for (const question of versionQuestions(step, state.answers, version)) validateQuestion(question, state.answers, errors);
   if (step === "personal-search" && textAnswer(state.answers, "personalOpenness") === "active" && textAnswer(state.answers, "personalRecentSearch") === "no") {
     errors.personalRecentSearch = "Je gaf aan dat je nu actief zoekt. Dat telt ook mee bij deze vraag. Pas dit antwoord of je vorige antwoord aan.";
   }
-  if (step === "second-route" && state.secondRoute !== "yes" && state.secondRoute !== "no") errors.secondRoute = "Kies of je de andere route wilt invullen.";
+  if (step === "second-route" && state.secondRoute !== "yes" && state.secondRoute !== "no") errors.secondRoute = "Kies of je de andere vragen wilt invullen.";
   if (step === "closing") {
     if (state.comment.trim().length > 1500) errors.comment = "Gebruik maximaal 1500 tekens.";
     if (state.interviewConsent !== "yes" && state.interviewConsent !== "no") errors.interviewConsent = "Kies of Raoul contact mag opnemen.";
@@ -97,25 +106,25 @@ export function validateResearchStep(step: ResearchStep, state: ResearchState): 
   }
   return errors;
 }
-export function firstInvalidResearchStep(state: ResearchState) {
-  return getResearchSteps(state).find((step) => Object.keys(validateResearchStep(step, state)).length > 0);
+export function firstInvalidResearchStep(state: ResearchState, version: ResearchVersion = RESEARCH_VERSION) {
+  return getResearchSteps(state).find((step) => Object.keys(validateResearchStep(step, state, version)).length > 0);
 }
-export function activeQuestions(state: ResearchState) {
-  return getResearchSteps(state).filter(isContentStep).flatMap((step) => getQuestions(step, state.answers));
+export function activeQuestions(state: ResearchState, version: ResearchVersion = RESEARCH_VERSION) {
+  return getResearchSteps(state).filter(isContentStep).flatMap((step) => versionQuestions(step, state.answers, version));
 }
 export type ResearchSubmission = {
-  formVersion: typeof RESEARCH_VERSION; submissionId: string; requestedPerspective: ParticipantType;
+  formVersion: ResearchVersion; submissionId: string; requestedPerspective: ParticipantType;
   firstRoute: Route; completedRoutes: Route[]; participantType: ParticipantType;
   answers: AnswerValues; comment?: string; interviewConsent: boolean;
   contact?: { name: string; email: string; phone?: string };
 };
 export const validSubmissionId = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-export function createResearchSubmission(state: ResearchState, submissionId: string): ResearchSubmission {
-  const invalid = firstInvalidResearchStep(state);
+export function createResearchSubmission(state: ResearchState, submissionId: string, version: ResearchVersion = RESEARCH_VERSION): ResearchSubmission {
+  const invalid = firstInvalidResearchStep(state, version);
   const first = firstRoute(state);
   if (invalid || !first || !isParticipantType(state.participantType) || !validSubmissionId(submissionId)) throw new Error(`Ongeldige inzending: ${invalid ?? "identificatie"}`);
   const answers: AnswerValues = {};
-  for (const question of activeQuestions(state)) {
+  for (const question of activeQuestions(state, version)) {
     const value = state.answers[question.id];
     if (Array.isArray(value)) answers[question.id] = question.options?.filter((o) => value.includes(o.value)).map((o) => o.value) ?? [];
     else if (typeof value === "string" && value.trim()) answers[question.id] = value.trim();
@@ -123,7 +132,7 @@ export function createResearchSubmission(state: ResearchState, submissionId: str
   }
   const routes = completedRoutes(state);
   return {
-    formVersion: RESEARCH_VERSION, submissionId: submissionId.toLowerCase(), requestedPerspective: state.participantType, firstRoute: first,
+    formVersion: version, submissionId: submissionId.toLowerCase(), requestedPerspective: state.participantType, firstRoute: first,
     completedRoutes: routes, participantType: routes.length === 2 ? "both" : first, answers,
     ...(state.comment.trim() ? { comment: state.comment.trim() } : {}), interviewConsent: state.interviewConsent === "yes",
     ...(state.interviewConsent === "yes" ? { contact: { name: state.name.trim(), email: state.email.trim(), ...(state.phone.trim() ? { phone: state.phone.trim() } : {}) } } : {}),
@@ -139,7 +148,7 @@ function onlyKeys(value: Record<string, unknown>, keys: string[]) { return Objec
 function isAnswerId(key: string): key is AnswerId { return questionIds.some((id) => key === id || key === `${id}Other`); }
 export function parseResearchSubmission(raw: unknown): ResearchSubmission | null {
   if (!record(raw) || !onlyKeys(raw, ["formVersion", "submissionId", "requestedPerspective", "firstRoute", "completedRoutes", "participantType", "answers", "comment", "interviewConsent", "contact"])) return null;
-  if (raw.formVersion !== RESEARCH_VERSION || typeof raw.submissionId !== "string" || !validSubmissionId(raw.submissionId) || typeof raw.requestedPerspective !== "string" || !isParticipantType(raw.requestedPerspective) || !isRoute(raw.firstRoute) || typeof raw.interviewConsent !== "boolean" || !record(raw.answers)) return null;
+  if (!isResearchVersion(raw.formVersion) || typeof raw.submissionId !== "string" || !validSubmissionId(raw.submissionId) || typeof raw.requestedPerspective !== "string" || !isParticipantType(raw.requestedPerspective) || !isRoute(raw.firstRoute) || typeof raw.interviewConsent !== "boolean" || !record(raw.answers)) return null;
   if (!Array.isArray(raw.completedRoutes) || !raw.completedRoutes.every(isRoute) || raw.completedRoutes.length < 1 || raw.completedRoutes.length > 2) return null;
   if (raw.comment !== undefined && typeof raw.comment !== "string") return null;
   const answers: AnswerValues = {};
@@ -153,9 +162,9 @@ export function parseResearchSubmission(raw: unknown): ResearchSubmission | null
     if (!record(raw.contact) || !onlyKeys(raw.contact, ["name", "email", "phone"]) || typeof raw.contact.name !== "string" || typeof raw.contact.email !== "string" || (raw.contact.phone !== undefined && typeof raw.contact.phone !== "string")) return null;
     state.name = raw.contact.name; state.email = raw.contact.email; state.phone = raw.contact.phone ?? "";
   } else if (raw.contact !== undefined) return null;
-  const allowed = activeQuestions(state).flatMap((q) => [q.id, ...(hasOther(q, answers) ? [`${q.id}Other`] : [])]);
-  if (Object.keys(answers).some((key) => !allowed.includes(key)) || firstInvalidResearchStep(state)) return null;
-  const result = createResearchSubmission(state, raw.submissionId);
+  const allowed = activeQuestions(state, raw.formVersion).flatMap((q) => [q.id, ...(hasOther(q, answers) ? [`${q.id}Other`] : [])]);
+  if (Object.keys(answers).some((key) => !allowed.includes(key)) || firstInvalidResearchStep(state, raw.formVersion)) return null;
+  const result = createResearchSubmission(state, raw.submissionId, raw.formVersion);
   return result.participantType === raw.participantType ? result : null;
 }
 export function answerLabel(question: Question, answers: AnswerValues): string {
@@ -163,7 +172,7 @@ export function answerLabel(question: Question, answers: AnswerValues): string {
   if (value === undefined || value === "") return "Niet ingevuld";
   if (question.kind === "text") return textAnswer(answers, question.id);
   const labels = (Array.isArray(value) ? value : [value]).map((choice) => {
-    if (choice === "other" && question.id !== "employerEffectiveChannels") return `Anders: ${textAnswer(answers, `${question.id}Other`)}`;
+    if (choice === (question.id === "employerEffectiveChannels" ? "own-answer" : "other")) return `Anders: ${textAnswer(answers, `${question.id}Other`)}`;
     return question.options?.find((o) => o.value === choice)?.label ?? choice;
   });
   return labels.join("; ");

@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { initialResearch, getResearchSteps, firstInvalidResearchStep, validateResearchStep, parseResearchSubmission, updateResearchAnswer, activeQuestions } from "../src/lib/screener/research.ts";
-import { getQuestions, questions, toggleChoice } from "../src/lib/screener/research-questions.ts";
+import { initialResearch, getResearchSteps, firstInvalidResearchStep, validateResearchStep, parseResearchSubmission, updateResearchAnswer, activeQuestions, createResearchSubmission, RESEARCH_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION } from "../src/lib/screener/research.ts";
+import { getQuestions as getPreviousQuestions } from "../src/lib/screener/research-questions-v1.ts";
+import { getQuestions, questions, sectors, detailedSectors, toggleChoice } from "../src/lib/screener/research-questions.ts";
 import { researchHeaders, storageRow, storageSchema, storageHeaderUpdate, sheetColumn } from "../src/lib/screener/research-storage.ts";
 import { createSubmissionHandler, SubmissionConflict } from "../src/lib/screener/submit-handler.ts";
 import { writeToSheets } from "../src/lib/screener/sheets-writer.ts";
@@ -89,12 +90,11 @@ test("work, study and no work coexist correctly; hidden work details do not leak
   assert.ok(validateResearchStep("personal-context", { ...researchState("personal"), answers: { personalSituation: ["not-working", "employed"] } }).personalSituation);
 });
 
-test("personal context omits redundant hints and retired tenure without changing storage columns", () => {
+test("retired tenure stays hidden without changing storage columns", () => {
   const state = researchState("personal");
   state.answers.personalTenure = "1-to-3";
   const visible = getQuestions("personal-context", state.answers);
   assert.equal(visible.some((q) => q.id === "personalTenure"), false);
-  for (const id of ["personalSector", "personalSize"]) assert.equal(visible.find((q) => q.id === id).hint, undefined);
   assert.equal(firstInvalidResearchStep(state), undefined);
   const payload = researchPayload(state);
   assert.equal("personalTenure" in payload.answers, false);
@@ -104,9 +104,9 @@ test("personal context omits redundant hints and retired tenure without changing
   assert.equal(storageRow(payload, "time", "hash")[index], "");
 });
 
-test("personal mismatch offers three clear choices and only yes asks for a reason", () => {
+test("personal mismatch offers the standard choices plus Other and only yes asks for a reason", () => {
   const question = questions.find((q) => q.id === "personalMismatch");
-  assert.deepEqual(question.options.map((o) => o.value), ["yes", "no", "no-experience"]);
+  assert.deepEqual(question.options.map((o) => o.value), ["yes", "no", "no-experience", "other"]);
   for (const value of ["yes", "no", "no-experience"]) {
     const state = updateResearchAnswer(researchState("personal"), "personalMismatch", value);
     const payload = researchPayload(state);
@@ -117,9 +117,9 @@ test("personal mismatch offers three clear choices and only yes asks for a reaso
   assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, personalMismatch: "unknown" } }), null);
 });
 
-test("openness has three distinct current states and rejects the redundant later option", () => {
+test("openness has three distinct current states plus Other and rejects the redundant later option", () => {
   const question = questions.find((q) => q.id === "personalOpenness");
-  assert.deepEqual(question.options.map((o) => o.value), ["active", "open", "closed"]);
+  assert.deepEqual(question.options.map((o) => o.value), ["active", "open", "closed", "other"]);
   for (const value of ["active", "open", "closed"]) {
     const payload = researchPayload(updateResearchAnswer(researchState("personal"), question.id, value));
     assert.deepEqual(parseResearchSubmission(payload), payload);
@@ -150,15 +150,15 @@ test("active searching cannot be combined with no search in the past two years",
   assert.ok(getQuestions("personal-experience", state.answers).some((q) => q.id === "personalMissingInfo"));
 });
 
-test("only experienced barriers offer a non-dropout answer, with exclusive selection", () => {
+test("barriers distinguish no actual dropout from no hypothetical deterrent", () => {
   for (const context of ["active", "browsing", "no"]) {
     const state = researchState("personal", "personal", { answers: { personalOpenness: "open", personalRecentSearch: context } });
     const question = getQuestions("personal-experience", state.answers).find((q) => q.id === "personalBarriers");
     assert.equal(question.options.some((o) => o.value === "not-applicable"), false);
     if (context === "no") {
-      assert.equal(question.options.some((o) => o.value === "none"), false);
+      assert.match(question.options.find((o) => o.value === "none").label, /zou/);
       const payload = researchPayload(state);
-      assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, personalBarriers: ["none"] } }), null);
+      assert.ok(parseResearchSubmission({ ...payload, answers: { ...payload.answers, personalBarriers: ["none"] } }));
     } else {
       assert.equal(question.options.find((o) => o.value === "none").label, "Ik ben niet afgehaakt");
       assert.deepEqual(toggleChoice(question, ["slow-response"], "none"), ["none"]);
@@ -173,15 +173,16 @@ test("only experienced barriers offer a non-dropout answer, with exclusive selec
   }
 });
 
-test("removed none choices retain required Other explanations in both search contexts", () => {
+test("none and Other remain distinct and exclusive in both search contexts", () => {
   for (const context of ["active", "browsing", "no"]) {
     for (const id of ["personalChecks", "personalBarriers"]) {
       let state = researchState("personal", "personal", { answers: { personalOpenness: "open", personalRecentSearch: context } });
       const question = getQuestions("personal-experience", state.answers).find((q) => q.id === id);
       if (id === "personalChecks") {
-        assert.equal(question.options.some((o) => o.value === "none"), false);
+        assert.equal(question.options.find((o) => o.value === "none").exclusive, true);
         const payload = researchPayload(state);
-        assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, [id]: ["none"] } }), null);
+        assert.ok(parseResearchSubmission({ ...payload, answers: { ...payload.answers, [id]: ["none"] } }));
+        assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, [id]: ["none", "website"] } }), null);
       }
       state = updateResearchAnswer(state, id, ["other"]);
       assert.ok(validateResearchStep("personal-experience", state)[`${id}Other`]);
@@ -239,14 +240,14 @@ test("missing information follows recent search experience without assuming vaca
   for (const context of ["active", "browsing"]) {
     const state = researchState("personal", "personal", { answers: { personalOpenness: "open", personalRecentSearch: context, personalChannels: ["network"] } });
     const question = getQuestions("personal-experience", state.answers).find((q) => q.id === "personalMissingInfo");
-    assert.equal(question.label, "Welke informatie over het werk miste je tijdens je zoektocht?");
-    assert.equal(question.options.some((o) => o.value === "not-applicable"), false);
-    for (const value of ["salary", "none", "unknown"]) {
+    assert.equal(question.label, "Welke informatie over het werk miste je bij je laatste zoektocht?");
+    assert.equal(question.options.find((o) => o.value === "not-applicable").exclusive, true);
+    for (const value of ["salary", "none", "not-applicable", "unknown"]) {
       const payload = researchPayload(updateResearchAnswer(state, question.id, [value]));
       assert.deepEqual(parseResearchSubmission(payload), payload);
     }
     const payload = researchPayload(state);
-    assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, personalMissingInfo: ["not-applicable"] } }), null);
+    assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, personalMissingInfo: ["not-applicable", "salary"] } }), null);
     let changed = updateResearchAnswer(state, question.id, ["other"]);
     changed = updateResearchAnswer(changed, "personalMissingInfoOther", "Toelichting");
     changed = updateResearchAnswer(changed, "personalRecentSearch", "no");
@@ -272,6 +273,24 @@ test("switching search context resets answers rather than reinterpreting actual 
   assert.equal(storageRow(payload, "time", "hash")[13], "Verwachting: hypothetisch");
 });
 
+test("search channels wait for a valid context and clear when the parent becomes unanswered", () => {
+  for (const value of [undefined, "", "invalid"]) {
+    const answers = { personalRecentSearch: value };
+    assert.equal(getQuestions("personal-search", answers).some(q => q.id === "personalChannels"), false);
+  }
+  for (const value of ["active", "browsing", "no", "other"]) {
+    assert.equal(getQuestions("personal-search", { personalRecentSearch: value }).some(q => q.id === "personalChannels"), true);
+  }
+  let state = updateResearchAnswer(researchState("personal"), "personalChannels", ["other"]);
+  state = updateResearchAnswer(state, "personalChannelsOther", "Een eigen manier");
+  state = updateResearchAnswer(state, "personalRecentSearch", "");
+  assert.equal(state.answers.personalChannels, undefined);
+  assert.equal(state.answers.personalChannelsOther, undefined);
+  const errors = validateResearchStep("personal-search", state);
+  assert.ok(errors.personalRecentSearch);
+  assert.equal(errors.personalChannels, undefined);
+});
+
 test("every Other answer has a bounded required explanation, except reused employer channel", () => {
   for (const question of activeQuestions(researchState()).filter((q) => q.options?.some((o) => o.value === "other") && q.id !== "employerEffectiveChannels")) {
     let state = updateResearchAnswer(researchState(), question.id, question.kind === "multi" ? ["other"] : "other");
@@ -279,11 +298,62 @@ test("every Other answer has a bounded required explanation, except reused emplo
     assert.ok(validateResearchStep(question.step, state)[key], question.id);
     state = updateResearchAnswer(state, key, " Eigen antwoord ");
     if (question.id === "employerChannels") state = updateResearchAnswer(state, "employerEffectiveChannels", ["other"]);
+    state = researchState("both", "employer", { answers: state.answers });
     const payload = researchPayload(state);
     assert.equal(payload.answers[key], "Eigen antwoord");
     assert.deepEqual(parseResearchSubmission(payload), payload);
+    const row = storageRow(payload, "time", "hash");
+    const column = researchHeaders.findIndex((header) => header.startsWith(`${question.id}:`) && !header.endsWith(": Anders"));
+    assert.match(row[column], /Anders: Eigen antwoord/, question.id);
+    assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, [key]: " " } }), null);
+    assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, [key]: "x".repeat(201) } }), null);
     assert.ok(validateResearchStep(question.step, { ...state, answers: { ...state.answers, [key]: "x".repeat(201) } })[key]);
   }
+});
+
+test("every visible content choice offers a writable own answer", () => {
+  for (const state of [researchState(), researchState("both", "employer", { answers: { personalOpenness: "open", personalRecentSearch: "no" } })]) {
+    for (const question of activeQuestions(state).filter(q => q.kind !== "text")) {
+      const ownValue = question.id === "employerEffectiveChannels" ? "own-answer" : "other";
+      assert.equal(question.options.some(o => o.value === ownValue), true, question.id);
+    }
+  }
+});
+
+test("effective channels accept an own explanation alongside the reused channel answer", () => {
+  let state = updateResearchAnswer(researchState("employer"), "employerChannels", ["other"]);
+  state = updateResearchAnswer(state, "employerChannelsOther", "Een vakvereniging");
+  state = updateResearchAnswer(state, "employerEffectiveChannels", ["other", "own-answer"]);
+  assert.ok(validateResearchStep("employer-search", state).employerEffectiveChannelsOther);
+  state = updateResearchAnswer(state, "employerEffectiveChannelsOther", "De combinatie werkte het best");
+  const payload = researchPayload(state);
+  assert.deepEqual(parseResearchSubmission(payload), payload);
+  const row = storageRow(payload, "time", "hash");
+  assert.equal(row[researchHeaders.indexOf("employerEffectiveChannels: Meest geschikte kandidaten via")], "Een vakvereniging; Anders: De combinatie werkte het best");
+  assert.equal(payload.answers.employerChannelsOther, "Een vakvereniging");
+  assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, employerEffectiveChannelsOther: "" } }), null);
+  assert.equal(parseResearchSubmission({ ...payload, answers: { ...payload.answers, employerEffectiveChannelsOther: "x".repeat(201) } }), null);
+  state = updateResearchAnswer(state, "employerEffectiveChannels", ["other"]);
+  assert.equal(state.answers.employerEffectiveChannelsOther, undefined);
+  state = updateResearchAnswer(state, "employerEffectiveChannels", ["own-answer"]);
+  state = updateResearchAnswer(state, "employerEffectiveChannelsOther", "Toelichting");
+  state = updateResearchAnswer(state, "employerChannels", ["unknown"]);
+  assert.equal(state.answers.employerEffectiveChannelsOther, undefined);
+  assert.equal(state.answers.employerEffectiveChannels, undefined);
+});
+
+test("an own search context is not recorded as hypothetical or experienced behaviour", () => {
+  let state = updateResearchAnswer(researchState("personal"), "personalRecentSearch", "other");
+  for (const id of ["personalChannels", "personalBarriers", "personalChecks", "personalMissingInfo"]) assert.equal(state.answers[id], undefined);
+  state = updateResearchAnswer(state, "personalRecentSearchOther", "Alleen een interne overstap");
+  state = researchState("personal", "personal", { answers: state.answers });
+  const payload = researchPayload(state);
+  assert.deepEqual(parseResearchSubmission(payload), payload);
+  assert.equal(storageRow(payload, "time", "hash")[13], "Niet ingedeeld: eigen antwoord");
+  assert.match(getQuestions("personal-search", state.answers).find(q => q.id === "personalChannels").label, /gebruikte je of zou je gebruiken/);
+  const changed = updateResearchAnswer(state, "personalRecentSearch", "no");
+  assert.equal(changed.answers.personalChannels, undefined);
+  assert.equal(changed.answers.personalRecentSearchOther, undefined);
 });
 
 test("max three choices, duplicate choices and exclusive choices are enforced on the server", () => {
@@ -352,6 +422,83 @@ test("literal free text other is not treated as an Other option", () => {
 });
 
 const request = (payload) => new Request("http://localhost/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+test("previous research forms keep their original validation, labels, API and storage contract", async () => {
+  for (const perspective of ["employer", "personal", "both"]) {
+    const state = { ...initialResearch, participantType: perspective, firstRoute: "employer", secondRoute: "yes", interviewConsent: "no", answers: {} };
+    for (const step of getResearchSteps(state).filter(s => s.startsWith("personal-") || s.startsWith("employer-"))) {
+      for (let i = 0; i < getPreviousQuestions(step, state.answers).length; i++) {
+        const q = getPreviousQuestions(step, state.answers)[i];
+        state.answers[q.id] = q.kind === "text" ? "Venlo" : q.kind === "multi" ? [q.options[0].value] : q.options[0].value;
+      }
+    }
+    if (perspective !== "employer") {
+      state.answers.personalPriorities = ["salary", "flexibility"];
+      state.answers.personalChecks = ["location", "team"];
+    }
+    const old = createResearchSubmission(state, randomUUID(), PREVIOUS_RESEARCH_VERSION);
+    assert.deepEqual(parseResearchSubmission(old), old);
+    assert.equal(storageSchema(old).suffix, "v5 onderzoek");
+    const row = storageRow(old, "time", "hash");
+    assert.equal(row[3], PREVIOUS_RESEARCH_VERSION);
+    if (perspective !== "employer") {
+      assert.equal(row[researchHeaders.indexOf("personalPriorities: Prioriteiten nieuwe baan")], "Salaris; Flexibiliteit");
+      assert.equal(row[researchHeaders.indexOf("personalChecks: Werkgeverscheck ervaring of verwachting")], "Locatie / reistijd; Medewerkers / sfeer");
+      assert.equal(parseResearchSubmission({ ...old, formVersion: RESEARCH_VERSION }), null);
+    }
+    const writes = [];
+    const handler = createSubmissionHandler(() => async value => writes.push(value));
+    assert.equal((await handler(request(old))).status, 200);
+    assert.deepEqual(writes, [old]);
+  }
+});
+
+test("new choices are version-gated and all new sector choices round-trip", () => {
+  for (const id of ["personalSector", "employerSector"]) {
+    const q = questions.find(q => q.id === id);
+    for (const choice of q.options.filter(o => o.value !== "other")) {
+      const payload = researchPayload(updateResearchAnswer(researchState(), id, choice.value));
+      assert.deepEqual(parseResearchSubmission(payload), payload);
+    }
+  }
+  const state = updateResearchAnswer(researchState(), "personalPriorities", ["remote", "schedule", "work-life"]);
+  const payload = researchPayload(state);
+  assert.equal(payload.formVersion, RESEARCH_VERSION);
+  assert.deepEqual(parseResearchSubmission(payload), payload);
+  assert.equal(parseResearchSubmission({ ...payload, formVersion: PREVIOUS_RESEARCH_VERSION }), null);
+  assert.equal(storageRow(payload, "time", "hash").length, 56);
+});
+
+test("compact sectors preserve detailed forms and their original stored labels", async () => {
+  assert.equal(sectors.length, 14);
+  assert.deepEqual(sectors.slice(-2).map(o => o.value), ["other", "unknown"]);
+  assert.ok(sectors.some(o => o.label.includes("ICT")));
+  assert.equal(sectors.some(o => /meerdere/i.test(o.label)), false);
+  for (const id of ["employerSector", "personalSector"]) {
+    const column = researchHeaders.findIndex(h => h.startsWith(`${id}:`) && !h.endsWith(": Anders"));
+    for (const option of detailedSectors.filter(o => o.value !== "other")) {
+      const state = researchState();
+      state.answers[id] = option.value;
+      const payload = createResearchSubmission(state, randomUUID(), DETAILED_SECTOR_VERSION);
+      assert.deepEqual(parseResearchSubmission(payload), payload);
+      assert.equal(storageRow(payload, "time", "hash")[column], option.label);
+    }
+    let state = updateResearchAnswer(researchState(), id, "other");
+    state = updateResearchAnswer(state, `${id}Other`, "Wisselende klussen in horeca en winkels");
+    const payload = researchPayload(state);
+    assert.deepEqual(parseResearchSubmission(payload), payload);
+    assert.equal(storageRow(payload, "time", "hash")[column], "Anders: Wisselende klussen in horeca en winkels");
+    const merged = researchPayload(updateResearchAnswer(researchState(), id, "trade"));
+    assert.equal(parseResearchSubmission({ ...merged, formVersion: DETAILED_SECTOR_VERSION }), null);
+  }
+  const state = researchState();
+  state.answers.personalSector = "ict";
+  const old = createResearchSubmission(state, randomUUID(), DETAILED_SECTOR_VERSION);
+  const writes = [];
+  const handler = createSubmissionHandler(() => async value => writes.push(value));
+  assert.equal((await handler(request(old))).status, 200);
+  assert.deepEqual(writes, [old]);
+});
+
 test("previously opened v4 forms still reach the original writer contract", async () => {
   const current = createSubmission({ ...initialAnswers, participantType: "personal", workerSituation: "not-working", workerHomeLocation: "Venray", workerActiveSearch: "no", workerOpenToWork: "maybe", name: "Test", email: "test@example.com" });
   for (const formVersion of [current.formVersion, LEGACY_FORM_VERSION]) {

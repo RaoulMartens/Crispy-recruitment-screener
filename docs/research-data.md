@@ -1,8 +1,10 @@
 # Datamodel onderzoeksformulier
 
-Versie: `v5-research-1`. Nieuw tabblad: `<prefix> v5 onderzoek`. Een regel is een bevestigde inzending, niet noodzakelijk een unieke persoon. Een herladen pagina begint een nieuwe sessie; er wordt geen apparaatidentiteit opgeslagen.
+Huidige versie: `v5-research-3` (30 september 2026). Vorige versies: `v5-research-1` en `v5-research-2`. Alle drie gebruiken `<prefix> v5 onderzoek`, met de versie in kolom D. Een regel is een bevestigde inzending, niet noodzakelijk een unieke persoon. Een herladen pagina begint een nieuwe sessie; er wordt geen apparaatidentiteit opgeslagen.
 
-## Vragen en bronkoppeling
+De onderstaande vraaginventaris en aanscherpingen van 29 september beschrijven de historische eerste v5-versie. Voor de actuele formuleringen, sectorindeling, antwoordkeuzes en interpretatie geldt [Onderbouwing van de vragenlijst](questionnaire-evidence.md). Analyseer beide versies apart: gelijke vraagcodes betekenen niet automatisch een gelijke vraaginhoud. Het privédashboard biedt daarvoor een versiekeuze.
+
+## Historische vraaginventaris (v5-research-1)
 
 Vraagcodes en antwoordwaarden zijn stabiele interne codes. De huidige Sheet schrijft leesbare labels en aparte Anders-kolommen. De labels van de Sheet-kolommen staan bewust los van de vraagtekst op het scherm: een tekstuele UI-verbetering mag opslag niet breken. Verander geen kolomvolgorde of inhoudelijke betekenis zonder nieuwe dataversie.
 
@@ -39,12 +41,12 @@ Vraagcodes en antwoordwaarden zijn stabiele interne codes. De huidige Sheet schr
 
 C1 is `comment` (optioneel, maximaal 1500 tekens). C2 is `interviewConsent` (Ja/Nee, standaard Ja op verzoek). Alleen bij Ja: naam en e-mail verplicht, telefoon optioneel. Contactgegevens uit een eerdere Ja-keuze worden bij Nee gewist en niet verstuurd. Plaatsen zijn optioneel; Andere-toelichtingen zijn alleen bij de gekozen optie verplicht (maximaal 200 tekens).
 
-## Routes en context
+## Routes en context van v5-research-1
 
 - Organisatie, eigen werk/studie of beide zijn gelijkwaardige bijdragen; er is geen automatische selectie of regiofilter.
 - `requestedPerspective` bewaart de oorspronkelijke keuze; `completedRoutes` bewaart de daadwerkelijk afgeronde routes in volgorde. Een gekozen maar overgeslagen tweede route is geen volledige Beide-respons.
 - A6-A8 worden alleen gesteld na een wervingspoging in de afgelopen twee jaar. Bij Nee/onbekend blijven ze leeg; dat betekent niet dat er geen problemen zijn.
-- A7 beperkt zich tot de bij A6 genoemde kanalen. Ook geen verschil, nog geen geschikte kandidaten en onbekend zijn geldige exclusieve uitkomsten.
+- A7 toont de bij A6 genoemde kanalen en biedt daarnaast een eigen antwoord. Ook geen verschil, nog geen geschikte kandidaten en onbekend zijn geldige exclusieve uitkomsten.
 - B1 staat werken, zelfstandig werken en studeren naast elkaar toe. Niet werken kan samen met studeren, maar niet met een werkende keuze. B1a-B1c verschijnen alleen bij werkenden. B1d (duur huidig werk) is verwijderd; nieuwe inzendingen laten de bestaande kolom leeg zodat andere kolommen niet verschuiven.
 - B3 onderscheidt actief zoeken, rondkijken en geen recente zoektocht. B4/B6/B8 zijn bij de eerste twee echte gerapporteerde ervaringen over twee jaar; bij de laatste zijn het verwachtingen. De context staat apart in kolom N.
 - Actief zoeken bij B2 kan niet samen met geen recente zoektocht bij B3. De deelnemer moet deze tegenstrijdigheid corrigeren; de validatie geldt ook op de server. Eerder zoeken en nu niet meer openstaan blijft wel mogelijk.
@@ -68,7 +70,7 @@ C1 is `comment` (optioneel, maximaal 1500 tekens). C2 is `interviewConsent` (Ja/
 - Een lege cel kan betekenen: optioneel niet ingevuld, vraag overgeslagen of route niet ingevuld. Gebruik route- en contextkolommen om dit te onderscheiden. Zet lege cellen niet om naar Nee.
 - Weet ik niet, niet van toepassing, niets/geen probleem en Nee zijn aparte uitkomsten.
 - Meervoudige keuzes staan als leesbare labels gescheiden door `; `. De volgorde volgt de opties en is geen rangschikking. Bij A9/B5 zijn een tot drie keuzes toegestaan.
-- Anders-tekst staat ook in een eigen kolom. Vrije tekst kan leestekens bevatten; behandel die kolom niet als een lijst met categorieen.
+- Anders-tekst staat leesbaar als `Anders: ...` in de antwoordkolom. Waar al een aparte Anders-kolom bestond, blijft deze ook gevuld. De nieuw toegevoegde eigen antwoorden gebruiken de antwoordkolom zodat de bestaande 56 kolommen niet verschuiven. Vrije tekst kan leestekens bevatten; behandel deze tekst niet als een lijst met categorieen.
 - Bij B6 en B8 hebben sommige identieke categorieen een andere betekenis per zoekcontext. Vergelijk gerapporteerd gedrag en intenties niet zonder die splitsing.
 - Oud v4 en nieuw v5 zijn verschillende meetinstrumenten. Voeg drie-maandsvragen uit v4 niet samen met twee-jaarsvragen uit v5.
 - Deze open werving levert patronen binnen de bereikte groep op, geen representatieve percentages over alle werkgevers of werkenden. Interviews verdiepen opvallende antwoorden met concrete situaties.
@@ -142,6 +144,12 @@ C1 is `comment` (optioneel, maximaal 1500 tekens). C2 is `interviewConsent` (Ja/
 De inzend-ID is een willekeurige UUID per formulierinzending. De SHA-256-inhoudsvingerafdruk hoort bij de genormaliseerde payload en is geen anonimiseringsgarantie. Het tijdstip is servertijd in ISO/UTC. De toestemmingsdatum blijft leeg bij Nee.
 
 De server accepteert ook de twee bestaande v4-versies en schrijft die ongewijzigd naar het oude v4-tabblad. Oude rijen en kopteksten worden niet omgezet. Het nieuwe tabblad wordt pas bij de eerste echte v5-inzending aangemaakt. Afwijkende kopteksten blokkeren de inzending met een foutmelding in plaats van bestaande data te overschrijven.
+
+Vanaf 30 september accepteert de server daarnaast beide v5-versies met hun eigen antwoordlijsten, validatie en opslaglabels. Nog geopende eerdere formulieren blijven werken. De 56 kolommen veranderen niet; eerdere rijen worden niet herschreven. Zet bij een rollback niet alleen een oude server terug die `v5-research-2` nog niet kent.
+
+De compacte sectorlijst krijgt `v5-research-3`: 12 sectoren plus Anders en onbekend, voor beide routes. `v5-research-2` blijft zijn 18 gedetailleerde sectoren accepteren en met de oorspronkelijke labels opslaan. Nieuwe samengevoegde categorieen gebruiken eigen codes. De opslagkolommen blijven gelijk en het dashboard toont de drie versies afzonderlijk. Bewaar bij een rollback ook de serverondersteuning voor versie 3.
+
+In de huidige versie bieden alle zichtbare inhoudelijke keuzevragen `Anders, namelijk` met een verplicht eigen antwoord van maximaal 200 tekens. Routekeuzes en interviewtoestemming houden vaste opties. A7 bewaart een eigen toelichting los van het hergebruikte antwoord van A6. Een eigen antwoord bij B3 wordt opgeslagen als `Niet ingedeeld: eigen antwoord`; de vervolgvragen blijven neutraal over ervaring of verwachting. Een gewijzigd zoekcontextantwoord wist eerdere afhankelijke antwoorden.
 
 Retrybescherming werkt per inzend-ID en controleert die ID opnieuw in Sheets. Dezelfde ID met gewijzigde inhoud geeft een conflict. Sheets biedt geen atomaire unieke sleutel: simultane retries op verschillende serverinstanties kunnen nog een dubbele rij veroorzaken. Gebruik de ID voor controle bij analyse; verschillende deelnemers met identieke antwoorden houden verschillende ID's.
 
