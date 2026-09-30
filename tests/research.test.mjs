@@ -408,8 +408,8 @@ test("new storage has aligned columns, a separate tab and strict non-destructive
   assert.equal(storageHeaderUpdate(payload, researchHeaders), null);
   assert.throws(() => storageHeaderUpdate(payload, ["old header"]));
   assert.equal(sheetColumn(26), "Z"); assert.equal(sheetColumn(27), "AA"); assert.equal(sheetColumn(52), "AZ");
-  assert.equal(researchHeaders.length, 56);
-  assert.equal(schema.lastColumn, "BD");
+  assert.equal(researchHeaders.length, 57);
+  assert.equal(schema.lastColumn, "BE");
   assert.ok(researchHeaders.includes("personalBarriers: Anders"));
 });
 
@@ -465,7 +465,7 @@ test("new choices are version-gated and all new sector choices round-trip", () =
   assert.equal(payload.formVersion, RESEARCH_VERSION);
   assert.deepEqual(parseResearchSubmission(payload), payload);
   assert.equal(parseResearchSubmission({ ...payload, formVersion: PREVIOUS_RESEARCH_VERSION }), null);
-  assert.equal(storageRow(payload, "time", "hash").length, 56);
+  assert.equal(storageRow(payload, "time", "hash").length, 57);
 });
 
 test("compact sectors preserve detailed forms and their original stored labels", async () => {

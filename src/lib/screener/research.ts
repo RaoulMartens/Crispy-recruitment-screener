@@ -4,12 +4,13 @@ import { getQuestions as getPreviousQuestions } from "./research-questions-v1.ts
 
 export const PREVIOUS_RESEARCH_VERSION = "v5-research-1" as const;
 export const DETAILED_SECTOR_VERSION = "v5-research-2" as const;
-export const RESEARCH_VERSION = "v5-research-3" as const;
-export type ResearchVersion = typeof RESEARCH_VERSION | typeof DETAILED_SECTOR_VERSION | typeof PREVIOUS_RESEARCH_VERSION;
-export const isResearchVersion = (value: unknown): value is ResearchVersion => value === RESEARCH_VERSION || value === DETAILED_SECTOR_VERSION || value === PREVIOUS_RESEARCH_VERSION;
+export const COMPACT_SECTOR_VERSION = "v5-research-3" as const;
+export const RESEARCH_VERSION = "v5-research-4" as const;
+export type ResearchVersion = typeof RESEARCH_VERSION | typeof COMPACT_SECTOR_VERSION | typeof DETAILED_SECTOR_VERSION | typeof PREVIOUS_RESEARCH_VERSION;
+export const isResearchVersion = (value: unknown): value is ResearchVersion => value === RESEARCH_VERSION || value === COMPACT_SECTOR_VERSION || value === DETAILED_SECTOR_VERSION || value === PREVIOUS_RESEARCH_VERSION;
 export function versionQuestions(step: ContentStep, answers: AnswerValues, version: ResearchVersion = RESEARCH_VERSION): Question[] {
   if (version === PREVIOUS_RESEARCH_VERSION) return getPreviousQuestions(step, answers);
-  return getQuestions(step, answers).map((question) => version === DETAILED_SECTOR_VERSION && (question.id === "personalSector" || question.id === "employerSector") ? { ...question, options: detailedSectors } : question);
+  return getQuestions(step, answers).filter((question) => version === RESEARCH_VERSION ? question.id !== "employerInvolvement" : question.id !== "employerRole").map((question) => version === DETAILED_SECTOR_VERSION && (question.id === "personalSector" || question.id === "employerSector") ? { ...question, options: detailedSectors } : question);
 }
 export type Route = "employer" | "personal";
 export type ResearchStep = "intro" | ContentStep | "second-route" | "closing" | "complete";

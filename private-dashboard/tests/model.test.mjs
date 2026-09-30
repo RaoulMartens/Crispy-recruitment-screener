@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseRows, filterRows, aggregate, definitions, versions } from "../model.mjs";
-import { RESEARCH_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION } from "../../src/lib/screener/research.ts";
+import { RESEARCH_VERSION, COMPACT_SECTOR_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION } from "../../src/lib/screener/research.ts";
 import { researchHeaders } from "../../src/lib/screener/research-storage.ts";
 function row(routes, context, priorities) {
   const r = researchHeaders.map(() => "");
@@ -64,7 +64,8 @@ test("research versions use separate participants and their own original answer 
   const old=row("personal","","Salaris; Flexibiliteit");old[3]=PREVIOUS_RESEARCH_VERSION;
   const current=row("personal","","Salaris; Thuis kunnen werken");
   const detailed=row("personal","","Salaris; Thuis kunnen werken");detailed[3]=DETAILED_SECTOR_VERSION;
-  const data=parseRows([researchHeaders,old,detailed,current]);
+  const compact=row("personal","","Salaris; Thuis kunnen werken");compact[3]=COMPACT_SECTOR_VERSION;
+  const data=parseRows([researchHeaders,old,detailed,compact,current]);
   for(const version of versions){
     const selected=filterRows(data,{route:"personal",version:version.id});
     assert.equal(selected.length,1);

@@ -2,6 +2,10 @@
 
 Goedgekeurde use cases: [bron en correcties](use-cases.md). Goedkeuring door Raoul op 29 september 2026.
 
+## Onderwerp en situatie gescheiden - 30 september 2026
+
+De start vraagt welk onderwerp iemand wil beantwoorden: eigen ervaringen met werk zoeken of medewerkers zoeken vanuit een organisatie. Er wordt precies een route gekozen. Alleen voor de persoonlijke route verschijnt de situatiekeuze; zelfstandigen/ondernemers worden dus niet automatisch naar baanvragen gestuurd. Binnen de organisatieroute wordt de rol gevraagd. Teruggaan bewaart antwoorden, maar alleen antwoorden van de gekozen route worden verstuurd. Oudere inzendingen met beide routes blijven leesbaar. De diagrammen hieronder beschrijven de eerdere flow.
+
 ## Schermkaart
 
 [Alle routes](diagrams/screen-map.md).

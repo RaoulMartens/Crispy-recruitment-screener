@@ -1,6 +1,6 @@
 import { questions, resolveQuestion, detailedSectors } from "../src/lib/screener/research-questions.ts";
 import { questions as previousQuestions, resolveQuestion as resolvePreviousQuestion } from "../src/lib/screener/research-questions-v1.ts";
-import { RESEARCH_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION, stepTitles } from "../src/lib/screener/research.ts";
+import { RESEARCH_VERSION, COMPACT_SECTOR_VERSION, DETAILED_SECTOR_VERSION, PREVIOUS_RESEARCH_VERSION, stepTitles } from "../src/lib/screener/research.ts";
 import { researchHeaders, RESEARCH_SHEET_SUFFIX } from "../src/lib/screener/research-storage.ts";
 
 export { RESEARCH_SHEET_SUFFIX };
@@ -12,10 +12,11 @@ function defineQuestions(source, resolve) { return source.filter(q => q.id !== "
   options: [...new Set([q, resolve(q, { personalRecentSearch: "no" }), resolve(q, { personalRecentSearch: "active", employerChannels: ["network", "linkedin"] })]
     .flatMap(question => question.options?.filter(o => o.value !== "other").map(o => o.label) ?? []))],
 })); }
-export const definitions = defineQuestions(questions, resolveQuestion);
+export const definitions = defineQuestions(questions.filter(q => q.id !== "employerInvolvement"), resolveQuestion);
 export const versions = [
-  { id: RESEARCH_VERSION, label: "Compacte sectorlijst (30 september 2026)", questions: definitions },
-  { id: DETAILED_SECTOR_VERSION, label: "Uitgebreide sectorlijst", questions: defineQuestions(questions.map(q => q.id === "personalSector" || q.id === "employerSector" ? { ...q, options: detailedSectors } : q), resolveQuestion) },
+  { id: RESEARCH_VERSION, label: "Met rol van de invuller", questions: definitions },
+  { id: COMPACT_SECTOR_VERSION, label: "Compacte sectorlijst", questions: defineQuestions(questions.filter(q => q.id !== "employerRole"), resolveQuestion) },
+  { id: DETAILED_SECTOR_VERSION, label: "Uitgebreide sectorlijst", questions: defineQuestions(questions.filter(q => q.id !== "employerRole").map(q => q.id === "personalSector" || q.id === "employerSector" ? { ...q, options: detailedSectors } : q), resolveQuestion) },
   { id: PREVIOUS_RESEARCH_VERSION, label: "Eerdere vragenlijst", questions: defineQuestions(previousQuestions, resolvePreviousQuestion) },
 ];
 
@@ -39,7 +40,7 @@ function answerSections(row) {
 
 // Namen alleen voor het lokale deelnemersoverzicht; e-mail en telefoon blijven op de server.
 export function parseRows(values) {
-  if (!values.length || JSON.stringify(values[0]) !== JSON.stringify(researchHeaders)) {
+  if (!values.length || (JSON.stringify(values[0]) !== JSON.stringify(researchHeaders) && JSON.stringify(values[0]) !== JSON.stringify(researchHeaders.slice(0, -1)))) {
     throw new Error("De kolommen van het onderzoek zijn gewijzigd. Controleer eerst de gegevenskoppeling.");
   }
   const index = new Map(values[0].map((label, i) => [label, i]));

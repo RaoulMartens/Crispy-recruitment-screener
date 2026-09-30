@@ -1,5 +1,6 @@
 export type Option = { value: string; label: string; exclusive?: boolean };
 export const questionIds = [
+  "employerRole",
   "employerLocation", "employerSector", "employerSize", "employerInvolvement", "employerFrequency", "employerRecruiters", "employerRecentHiring", "employerChannels", "employerEffectiveChannels", "employerBarriers", "employerPriorities", "employerEarlyDeparture", "employerDepartureReason",
   "personalSituation", "personalHome", "personalSector", "personalSize", "personalWorkplace", "personalTenure", "personalOpenness", "personalRecentSearch", "personalChannels", "personalPriorities", "personalBarriers", "personalMissingInfo", "personalChecks", "personalMismatch", "personalMismatchReason",
 ] as const;
@@ -54,6 +55,7 @@ const personalBarriers = options([
 ]);
 
 export const questions: readonly Question[] = [
+  { id: "employerRole", step: "employer-context", kind: "multi", label: "Wat is jouw rol binnen de organisatie?", options: [...options([["owner", "Eigenaar / directie"], ["hr", "HR-medewerker"], ["recruiter", "Recruiter"], ["manager", "Leidinggevende"]]), other] },
   { id: "employerLocation", step: "employer-context", kind: "text", label: "In welke plaats werk je?", optional: true, hint: "Geen vaste werkplek? Laat dit veld dan leeg." },
   { id: "employerSector", step: "employer-context", kind: "select", label: "In welke sector is jullie organisatie vooral actief?", hint: "Kies de belangrijkste activiteit van de organisatie.", options: sectors },
   { id: "employerSize", step: "employer-context", kind: "select", label: "Hoeveel mensen werken er in de hele organisatie?", options: sizes },
@@ -125,8 +127,8 @@ export function toggleChoice(question: Question, values: string[], value: string
   if (question.options?.find((option) => option.value === value)?.exclusive) return [value];
   let next = values.filter((v) => !question.options?.find((option) => option.value === v)?.exclusive);
   if (question.id === "personalSituation") {
-    if (value === "not-working") next = next.filter((v) => v !== "employed" && v !== "self-employed");
-    if (value === "employed" || value === "self-employed") next = next.filter((v) => v !== "not-working");
+    if (value === "not-working") next = next.filter((v) => v !== "employed" && v !== "self-employed" && v !== "employer");
+    if (value === "employed" || value === "self-employed" || value === "employer") next = next.filter((v) => v !== "not-working");
   }
   return [...next, value];
 }

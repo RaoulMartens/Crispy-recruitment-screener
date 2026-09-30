@@ -8,9 +8,10 @@ export type AnySubmission = ResearchSubmission | StoredSubmission;
 export const RESEARCH_SHEET_SUFFIX = "v5 onderzoek";
 // Keep existing columns fixed; new own answers are stored in the main answer cell.
 const otherQuestions = previousQuestions.filter((q) => q.id !== "employerEffectiveChannels" && q.options?.some((o) => o.value === "other"));
-const otherIds = new Set(otherQuestions.map((q) => q.id));
+const otherIds = new Set<QuestionId>(otherQuestions.map((q) => q.id));
 // Storage labels are versioned independently of UI copy edits.
 const columnLabels: Record<QuestionId, string> = {
+  employerRole: "Rol van de invuller",
   employerLocation: "Werkplaats", employerSector: "Sector organisatie", employerSize: "Grootte hele organisatie",
   employerInvolvement: "Eigen betrokkenheid werving", employerFrequency: "Frequentie personeelsbehoefte",
   employerRecruiters: "Wie werft", employerRecentHiring: "Wervingspoging afgelopen twee jaar",
@@ -25,10 +26,12 @@ const columnLabels: Record<QuestionId, string> = {
   personalChecks: "Werkgeverscheck ervaring of verwachting", personalMismatch: "Afwijkende baanverwachting meegemaakt",
   personalMismatchReason: "Belangrijkste verschil met verwachting",
 };
+// Append new fields so previously stored answers retain their column positions.
+const storageQuestions = [...questions.filter((q) => q.id !== "employerRole"), ...questions.filter((q) => q.id === "employerRole")];
 export const researchHeaders = [
   "Inzend-ID", "Inhoudsvingerafdruk", "Ingezonden op", "Formulierversie", "Gekozen perspectief", "Ingevulde routes", "Eerste route",
   "Toestemming interviewcontact", "Toestemming op", "Naam", "E-mailadres", "Telefoonnummer", "Aanvulling", "Zoekcontext (ervaring of verwachting)",
-  ...questions.flatMap((q) => [`${q.id}: ${columnLabels[q.id]}`, ...(otherIds.has(q.id) ? [`${q.id}: Anders`] : [])]),
+  ...storageQuestions.flatMap((q) => [`${q.id}: ${columnLabels[q.id]}`, ...(otherIds.has(q.id) ? [`${q.id}: Anders`] : [])]),
 ];
 export const isResearchSubmission = (payload: AnySubmission): payload is ResearchSubmission => isResearchVersion(payload.formVersion);
 export function sheetColumn(index: number): string {
@@ -45,6 +48,7 @@ export function storageHeaderUpdate(payload: AnySubmission, existing: unknown[])
   if (!isResearchSubmission(payload)) return legacyHeaderUpdate(existing);
   if (!existing.length) return { range: `A1:${sheetColumn(researchHeaders.length)}1`, values: [researchHeaders] };
   if (JSON.stringify(existing) === JSON.stringify(researchHeaders)) return null;
+  if (JSON.stringify(existing) === JSON.stringify(researchHeaders.slice(0, -1))) return { range: `${sheetColumn(researchHeaders.length)}1:${sheetColumn(researchHeaders.length)}1`, values: [[researchHeaders[researchHeaders.length - 1]]] };
   throw new Error("Onverwachte onderzoekskolommen; bestaande gegevens blijven ongewijzigd.");
 }
 export function storageRow(payload: AnySubmission, receivedAt: string, fingerprint: string): string[] {
@@ -55,7 +59,7 @@ export function storageRow(payload: AnySubmission, receivedAt: string, fingerpri
     payload.submissionId, fingerprint, receivedAt, payload.formVersion, payload.requestedPerspective, payload.completedRoutes.join("; "), payload.firstRoute,
     payload.interviewConsent ? "Ja" : "Nee", payload.interviewConsent ? receivedAt : "", payload.contact?.name ?? "", payload.contact?.email ?? "", payload.contact?.phone ?? "", payload.comment ?? "",
     payload.completedRoutes.includes("personal") ? searchContext(payload.answers) === "experience" ? "Ervaring: afgelopen twee jaar" : searchContext(payload.answers) === "other" ? "Niet ingedeeld: eigen antwoord" : "Verwachting: hypothetisch" : "",
-    ...questions.flatMap((q) => {
+    ...storageQuestions.flatMap((q) => {
       const resolved = active.get(q.id);
       const value = resolved && payload.answers[q.id] !== undefined ? answerLabel(resolved, payload.answers) : "";
       const other = payload.answers[`${q.id}Other`];

@@ -1,4 +1,5 @@
 "use client";
+import { versionQuestions } from "@/lib/screener/research";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
@@ -11,14 +12,14 @@ import { CompletionConfetti } from "@/components/screener/completion-confetti";
 import { FortuneCookieAnimation } from "@/components/screener/fortune-cookie-animation";
 import type { Fortune } from "@/lib/screener/fortunes";
 import { selectFortuneForParticipant } from "@/lib/screener/select-fortune";
-import { isParticipantType } from "@/lib/screener/steps";
+import { topicOptions, updateTopic, intakeQuestion, intakeRoleQuestion, intakeValues, updateIntake, validateIntakeStep, intakeSteps, intakeQuestions } from "@/lib/screener/intake";
 import {
-  initialResearch, getResearchSteps, firstRoute, isRoute, isContentStep, stepTitles, perspectiveOptions, firstRouteOptions,
-  updateResearchAnswer, validateResearchStep, firstInvalidResearchStep, createResearchSubmission,
+  initialResearch, getResearchSteps, isContentStep, stepTitles,
+  updateResearchAnswer, createResearchSubmission,
   stateFromResearchSubmission, answerLabel,
   type ResearchState, type ResearchErrors, type ResearchStep, type ResearchSubmission,
 } from "@/lib/screener/research";
-import { getQuestions, textAnswer, multiAnswer, hasOther, yesNo, type AnswerId, type Question } from "@/lib/screener/research-questions";
+import { textAnswer, multiAnswer, hasOther, yesNo, type AnswerId, type Question } from "@/lib/screener/research-questions";
 
 type Completion = { fortune: Fortune; screenCount: number; submission: ResearchSubmission };
 type ShareStatus = "idle" | "shared" | "copied" | "error";
@@ -52,7 +53,7 @@ function SubmittedAnswers({ submission }: { submission: ResearchSubmission }) {
   return <div className="space-y-9">
     <ReviewSection title="Ingevulde onderdelen" rows={[{ label: "Waarover heb je verteld?", value: submission.completedRoutes.map((route) => route === "employer" ? "De organisatie" : "Eigen werk of studie").join(" en ") }]} />
     {getResearchSteps(state).filter(isContentStep).map((step) => <ReviewSection key={step} title={stepTitles[step]} rows={
-      getQuestions(step, submission.answers).map((q) => ({ label: q.label, value: answerLabel(q, submission.answers) }))
+      versionQuestions(step, submission.answers, submission.formVersion).map((q) => ({ label: q.label, value: answerLabel(q, submission.answers) }))
     } />)}
     <ReviewSection title="Tot slot" rows={[
       ...(submission.comment ? [{ label: "Aanvulling", value: submission.comment }] : []),
@@ -89,19 +90,15 @@ export function Screener() {
   const [completion, setCompletion] = useState<Completion | null>(null);
   const [viewingAnswers, setViewingAnswers] = useState(false);
   const [visitedAnswers, setVisitedAnswers] = useState(false);
-  const [skipConfirmation, setSkipConfirmation] = useState(false);
   const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
   const sendingRef = useRef(false);
   const submissionIdRef = useRef<string | null>(null);
   const focusFieldRef = useRef<string | null>(null);
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const steps = getResearchSteps(state);
+  const steps = intakeSteps(state);
   const stepIndex = steps.indexOf(stepId);
   const screenCount = completion?.screenCount ?? steps.length;
   const screenNumber = completion ? screenCount : stepIndex + 1;
-  const first = firstRoute(state);
-  const isSecondRoute = state.participantType === "both" && state.secondRoute === "yes" && isContentStep(stepId) && !stepId.startsWith(first ?? "");
-  const otherRouteLabel = first === "employer" ? "je eigen werk of studie" : "de organisatie";
 
   useEffect(() => {
     if (!focusFieldRef.current) return;
@@ -117,7 +114,7 @@ export function Screener() {
   useEffect(() => () => { if (shareTimerRef.current) clearTimeout(shareTimerRef.current); }, []);
 
   function goTo(id: ResearchStep) {
-    setErrors({}); setSendError(null); setSkipConfirmation(false); setStepId(id);
+    setErrors({}); setSendError(null); setStepId(id);
     window.scrollTo({ top: 0, behavior: "instant" });
   }
   function updateAnswer(id: AnswerId, value: string | string[]) {
@@ -134,11 +131,11 @@ export function Screener() {
   async function next(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sendingRef.current) return;
-    const nextErrors = validateResearchStep(stepId, state);
+    const nextErrors = validateIntakeStep(stepId, state);
     if (Object.keys(nextErrors).length) { showErrors(stepId, nextErrors); return; }
     if (stepId !== "closing") { goTo(steps[stepIndex + 1]); return; }
-    const invalid = firstInvalidResearchStep(state);
-    if (invalid) { showErrors(invalid, validateResearchStep(invalid, state)); return; }
+    const invalid = steps.find((step) => Object.keys(validateIntakeStep(step, state)).length > 0);
+    if (invalid) { showErrors(invalid, validateIntakeStep(invalid, state)); return; }
     submissionIdRef.current ??= crypto.randomUUID();
     const submission = createResearchSubmission(state, submissionIdRef.current);
     sendingRef.current = true; setBusy(true); setSendError(null);
@@ -191,17 +188,19 @@ export function Screener() {
                 <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Wat vind je belangrijk in een baan of een nieuwe medewerker? Hoe zoek je en wat maak je daarbij mee? Met je antwoorden help je mijn afstudeeronderzoek.</p>
                 <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Ook als je nu geen werk zoekt of zelden personeel aanneemt, zijn je ervaringen welkom.</p>
                 <p className="text-[0.9375rem] leading-[1.55] text-muted-foreground">Na het invullen krijg je een digitaal gelukskoekje als bedankje.</p>
-                <ChoiceField id="participantType" label="Waarover wil je vertellen?" options={perspectiveOptions} value={state.participantType} error={errors.participantType}
-                  onChange={(value) => { if (isParticipantType(value)) updateState({ participantType: value, firstRoute: "", secondRoute: "" }); }} />
-                {state.participantType === "both" && <ChoiceField id="firstRoute" label="Waar wil je mee beginnen?" options={firstRouteOptions} value={state.firstRoute} error={errors.firstRoute}
-                  onChange={(value) => { if (isRoute(value)) updateState({ firstRoute: value, secondRoute: "" }); }} />}
+                <ChoiceField id="participantType" label="Over welk onderwerp wil je vragen beantwoorden?"
+                  options={topicOptions} value={state.participantType} error={errors.participantType}
+                  onChange={(value) => { if (value === "personal" || value === "employer") { setState((current) => updateTopic(current, value)); setErrors({}); setSendError(null); } }} />
+                {state.participantType === "personal" && <MultiChoiceField question={intakeQuestion} values={intakeValues(state)} error={errors.personalSituation}
+                  onChange={(values) => { setState((current) => updateIntake(current, values)); setErrors({}); setSendError(null); }}
+                  otherField={<TextField id="personalSituationOther" label="Eigen antwoord bij: Wat is je huidige situatie?" hideLabel
+                    value={textAnswer(state.answers, "personalSituationOther")} error={errors.personalSituationOther}
+                    onChange={(value) => updateAnswer("personalSituationOther", value)} maxLength={200} placeholder="Vul je eigen antwoord in" />} />}
+                {state.participantType === "employer" && <ResearchQuestion question={intakeRoleQuestion} state={state} errors={errors} onChange={updateAnswer} />}
               </div>}
               {isContentStep(stepId) && <div className="space-y-8">
-                {getQuestions(stepId, state.answers).map((question) => <ResearchQuestion key={question.id} question={question} state={state} errors={errors} onChange={updateAnswer} />)}
+                {intakeQuestions(stepId, state).map((question) => <ResearchQuestion key={question.id} question={question} state={state} errors={errors} onChange={updateAnswer} />)}
               </div>}
-              {stepId === "second-route" && <ChoiceField id="secondRoute" label={`Wil je ook vertellen over ${otherRouteLabel}?`}
-                value={state.secondRoute} error={errors.secondRoute} options={[{ value: "yes", label: "Ja, ook de andere vragen invullen" }, { value: "no", label: "Nee, afronden met deze antwoorden" }]}
-                onChange={(value) => { if (value === "yes" || value === "no") updateState({ secondRoute: value }); }} />}
               {stepId === "closing" && <div className="space-y-6">
                 <TextAreaField id="comment" label="Wil je nog iets meegeven?" value={state.comment} error={errors.comment} onChange={(value) => updateState({ comment: value })} />
                 <ChoiceField id="interviewConsent" label="Mag Raoul contact met je opnemen voor een gesprek over je antwoorden?"
@@ -225,15 +224,6 @@ export function Screener() {
                   {!busy && <ArrowRight aria-hidden="true" className="next-arrow" />}
                 </Button>
               </div>
-              {isSecondRoute && <div className="mt-6 text-sm text-muted-foreground">
-                {!skipConfirmation ? <button type="button" className="min-h-11 underline underline-offset-4" onClick={() => setSkipConfirmation(true)}>Deze tweede reeks vragen overslaan</button> : <div className="space-y-3">
-                  <p>Je antwoorden op deze tweede reeks vragen worden niet verstuurd. Je eerdere antwoorden blijven behouden.</p>
-                  <div className="flex flex-wrap gap-3">
-                    <Button type="button" variant="ghost" onClick={() => { updateState({ secondRoute: "no" }); goTo("closing"); }}>Overslaan en afronden</Button>
-                    <Button type="button" variant="ghost" onClick={() => setSkipConfirmation(false)}>Toch verder invullen</Button>
-                  </div>
-                </div>}
-              </div>}
             </fieldset>
           </form>
           {stepId === "intro" && <details className="group mt-8 border-t border-border pt-3 text-sm text-muted-foreground">

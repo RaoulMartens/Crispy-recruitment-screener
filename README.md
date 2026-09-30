@@ -15,10 +15,10 @@ Open http://localhost:3000. De bestaande Crispy-vormgeving, deelknoppen en het g
 
 ## Routes
 
-- Start: doel, vrijwilligheid en perspectief (organisatie, eigen werk/studie, beide).
+- Start: kies bewust een onderwerp: eigen ervaringen met werk zoeken, of medewerkers zoeken vanuit een organisatie. Alleen de persoonlijke route vraagt naar de huidige werksituatie.
 - Organisatie: drie blokken voor context, personeel vinden, keuzes/ervaringen.
-- Persoonlijk: drie blokken voor situatie, werk vinden, keuzes/ervaringen.
-- Beide: kies de eerste route; na afloop is de tweede optioneel. Ook een begonnen tweede route kan expliciet worden overgeslagen. Slechts complete, gekozen routes worden verzonden.
+- Persoonlijk: wie werkt krijgt situatie, werk vinden en keuzes/ervaringen. Wie niet werkt gaat direct naar werk vinden, met de optionele woonplaats bovenaan. De huidige situatie wordt niet opnieuw gevraagd.
+- Een onderwerp per inzending: loondienst, zelfstandigheid of studeren kiest nooit automatisch een route. De organisatieroute vraagt naar de rol van de invuller; terug naar de start laat het onderwerp wijzigen.
 - Gezamenlijke afsluiting: optionele aanvulling, Ja/Nee voor interviewcontact. Alleen Ja vraagt naam/e-mail en biedt een optioneel telefoonnummer. Bij Nee worden eerder ingevoerde contactgegevens gewist en nooit verzonden.
 - Versturen slaat de onderzoeksantwoorden op bij zowel Ja als Nee. Alleen na bevestigde opslag verschijnen het bedankje, gelukskoekje en read-only antwoordoverzicht.
 
@@ -34,6 +34,7 @@ De vragen scheiden actuele gerapporteerde ervaring (afgelopen twee jaar) van hyp
 
 - `src/lib/screener/research-questions.ts`: vraagdefinities, opties, voorwaarden, contextafhankelijke formuleringen.
 - `src/lib/screener/research.ts`: navigatie, validatie, genormaliseerde inzending en strikte serverparser.
+- `src/lib/screener/intake.ts`: houdt onderwerpkeuze en werksituatie gescheiden en bepaalt schermvolgorde en validatie van verplaatste vragen. Oudere formulieren blijven geldig via de versieparser. De nieuwe rol wordt in een extra Sheet-kolom opgeslagen; bestaande kolommen behouden hun positie.
 - `src/components/screener/screener.tsx`: formulier en bevestigde antwoordweergave.
 - `src/lib/screener/research-storage.ts`: versie-afhankelijk tabblad/kolommen en leesbare Sheet-waarden.
 - `src/lib/screener/submit-handler.ts`: testbare API-afhandeling en proceslokale bescherming tegen dubbele verzoeken.
