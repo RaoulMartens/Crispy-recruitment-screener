@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, Check, LoaderCircle, Share2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, LoaderCircle, Share2 } from "lucide-react";
 import welcomeCover from "../../../public/welcome-cover.webp";
 import { Button } from "@/components/ui/button";
 import { StepFrame } from "@/components/screener/step-frame";
@@ -236,6 +236,16 @@ export function Screener() {
               </div>}
             </fieldset>
           </form>
+          {stepId === "intro" && <details className="group mt-8 border-t border-border pt-3 text-sm text-muted-foreground">
+            <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+              Privacy &amp; deelname
+              <ChevronDown aria-hidden="true" className="size-4 group-open:rotate-180" />
+            </summary>
+            <div className="mt-2 space-y-3 leading-relaxed">
+              <p>Je antwoorden gebruik ik alleen voor mijn afstudeeronderzoek en worden anoniem verwerkt in de resultaten. Deelname is vrijwillig en je kunt op ieder moment stoppen.</p>
+              <p>Aan het einde kun je optioneel je naam en e-mailadres achterlaten als je openstaat voor een kort vervolggesprek. Deze gegevens worden alleen gebruikt om hiervoor contact met je op te nemen en niet voor commerciële doeleinden.</p>
+            </div>
+          </details>}
           <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
             {busy ? "Je antwoorden worden verstuurd." : ""}
           </div>
